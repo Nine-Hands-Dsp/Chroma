@@ -27,7 +27,7 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
 | Footswitch **TUNE / MUTE** | coupe la sortie (LED rouge). L'accordeur fonctionne toujours, coupé ou non |
 
 ## Clic droit (n'importe où)
-- **Plugin size** : 60 % (default, taille minimale), 75 %, 100 % — on peut aussi tirer le coin.
+- **Plugin size** : 60 % (taille minimale), 75 %, 100 % — on peut aussi tirer le coin. La taille par défaut porte la mention « (default) ». **Default size (new windows)** : taille d'ouverture des nouvelles fenêtres (60 % à l'origine), commune à toutes les instances ; la choisir redimensionne aussi la fenêtre courante. Une taille changée dans un projet reste enregistrée pour cette instance.
 - **MIDI** : canal, *Learn* pour chaque fonction, pédale à verrouillage ou momentanée.
   Par défaut : MUTE = CC 80, MODE = CC 81, accordage suivant = CC 82, précédent = CC 83, REF = CC 84.
   Program Change n = n-ième favori (ou n-ième accordage s'il n'y a pas de favoris).
@@ -64,3 +64,5 @@ Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
 - v1.2.1 : menu de taille de fenêtre : « 60 % (default) », 75 %, 100 % (plus de taille en pixels)
 
 - v1.3.0 : MIDI Learn au clic droit sur chaque commande (Clear MIDI, assignations sauvegardées avec le projet)
+
+- v1.4.0 : clic droit > Plugin size > Default size (new windows) : taille par défaut des nouvelles fenêtres au choix, comme dans Octopus

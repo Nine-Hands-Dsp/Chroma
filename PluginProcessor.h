@@ -62,7 +62,7 @@ public:
     void resetMidiMap();
     std::atomic<int> lastMidiCc { -1 }, lastMidiValue { 0 }, lastMidiStamp { 0 };
 
-    std::atomic<int> uiHeight { tunaui::heightDefault };
+    std::atomic<int> uiHeight { 0 };          // 0 = aucune taille enregistrée pour cette instance (taille par défaut choisie)
     juce::AudioProcessorValueTreeState apvts;
 
 private:

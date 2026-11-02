@@ -203,6 +203,8 @@ public:
     void closeTuningEditor();
     void flash (const juce::String& text);
     void setWindowHeight (int h);
+    static constexpr int numSizes = 3;           // 60 % (défaut d'origine) / 75 % / 100 %
+    static int sizeHeight (int idx);
     void showContextMenu (int learnIdx = -1);     // learnIdx >= 0 : clic droit sur une commande (MIDI Learn en tête du menu)
     void showContextMenuFor (juce::Component* c); // clic droit sur un potard / une flèche : MIDI Learn de cette commande
     void addMidiLearnSection (juce::PopupMenu& m, int learnIdx);
@@ -219,6 +221,7 @@ private:
     int cacheW = 0, cacheH = 0;
     float cacheScale = 0.0f;
     int resizeSettle = 0;
+    int openHeight = 0;           // hauteur d'ouverture de la fenêtre (taille par défaut ou taille de l'instance)
     void rebuildCaches (float scale = 0.0f);
     float physicalScale() const;
     // anti-gel v2 : suivi de la fenêtre hôte, de l'échelle et des redessins

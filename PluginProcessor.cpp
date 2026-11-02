@@ -264,7 +264,7 @@ void TunaProcessor::getStateInformation (juce::MemoryBlock& dest)
     state.setProperty ("tuningKey", library.keyAt (tuningIndex), nullptr);
     state.setProperty ("tuningNotes", juce::String (tuna::notesToString (library.get (tuningIndex).notes)), nullptr);
     state.setProperty ("tuningName", getTuningName(), nullptr);
-    state.setProperty ("uiHeight", uiHeight.load(), nullptr);
+    if (uiHeight.load() > 0) state.setProperty ("uiHeight", uiHeight.load(), nullptr);
     for (int i = 0; i < numLearn; ++i)
         state.setProperty (learnDef (i).key, ccMap[i].load(), nullptr);     // -1 = non assigné
     if (auto xml = state.createXml()) copyXmlToBinary (*xml, dest);
@@ -276,7 +276,10 @@ void TunaProcessor::setStateInformation (const void* data, int size)
     if (xml == nullptr || ! xml->hasTagName (apvts.state.getType())) return;
     auto state = juce::ValueTree::fromXml (*xml);
     apvts.replaceState (state);
-    uiHeight.store (juce::jlimit (tunaui::heightDefault, tunaui::heightMax, (int) state.getProperty ("uiHeight", tunaui::heightDefault)));
+    {
+        const int uh = (int) state.getProperty ("uiHeight", 0);    // absent = taille par défaut choisie dans le menu
+        uiHeight.store (uh > 0 ? juce::jlimit (tunaui::heightDefault, tunaui::heightMax, uh) : 0);
+    }
     for (int i = 0; i < numLearn; ++i)
         ccMap[i].store (juce::jlimit (-1, 127, (int) state.getProperty (learnDef (i).key, learnDef (i).defaultCC)));
 

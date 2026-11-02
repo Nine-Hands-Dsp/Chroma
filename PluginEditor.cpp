@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
+#include "WigaWindowSize.h"
 
 using namespace juce;
 
@@ -999,7 +1000,12 @@ TunaEditor::TunaEditor (TunaProcessor& p)
                      roundToInt (tunaui::heightMax * aspect), tunaui::heightMax);
     getConstrainer()->setFixedAspectRatio (aspect);
     setOpaque (true);                      // anti-gel : l'hôte ne redessine jamais ce qui est derrière la fenêtre
-    const int h0 = jlimit (tunaui::heightDefault, tunaui::heightMax, proc.uiHeight.load());
+    // taille d'ouverture : celle enregistrée pour cette instance (projet) si elle existe,
+    // sinon celle choisie dans le menu « Default size (new windows) »
+    const int saved = proc.uiHeight.load();
+    const int h0 = saved > 0 ? jlimit (tunaui::heightDefault, tunaui::heightMax, saved)
+                             : sizeHeight (WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes));
+    openHeight = h0;
     setSize (roundToInt (h0 * aspect), h0);
     rebuildCaches();
 
@@ -1101,7 +1107,9 @@ void TunaEditor::resized()
 {
     // anti-gel : jamais de setSize ici (mise à l'échelle Windows 125 / 150 % : l'hôte arrondit les tailles) ;
     // les limites du constrainer suffisent, sinon boucle de redimensionnement avec l'hôte
-    proc.uiHeight.store (jlimit (tunaui::heightDefault, tunaui::heightMax, getHeight()));
+    // taille de cette instance enregistrée seulement si elle a été changée (sinon : taille par défaut choisie)
+    if (proc.uiHeight.load() > 0 || (openHeight > 0 && std::abs (getHeight() - openHeight) > 2))
+        proc.uiHeight.store (jlimit (tunaui::heightDefault, tunaui::heightMax, getHeight()));
 
     display.setBounds (scaled (art::screen));
     modeKnob.setBounds (scaled (art::modeKnob));
@@ -1114,6 +1122,12 @@ void TunaEditor::resized()
     menu.setBounds (menuBounds());
     tuningEditor.setBounds (menuBounds());
     resizeSettle = 4;              // le fond sera refait par le timer quand la taille ne bouge plus
+}
+
+int TunaEditor::sizeHeight (int idx)
+{
+    const int h[numSizes] = { tunaui::heightDefault, tunaui::height75, tunaui::height100 };
+    return h[jlimit (0, numSizes - 1, idx)];
 }
 
 void TunaEditor::setWindowHeight (int h)
@@ -1221,11 +1235,18 @@ bool TunaEditor::handleMidiLearnItem (int r)
 
 void TunaEditor::showContextMenu (int learnIdx)
 {
-    PopupMenu size;
+    // Plugin size : taille de cette fenêtre + taille par défaut des nouvelles fenêtres (comme Octopus)
+    PopupMenu size, defSize;
     const int h = getHeight();
-    size.addItem (101, "60 % (default)", true, std::abs (h - tunaui::heightDefault) < 8);
-    size.addItem (103, "75 %", true, std::abs (h - tunaui::height75) < 8);
-    size.addItem (104, "100 %", true, std::abs (h - tunaui::height100) < 8);
+    const char* sizeNames[numSizes] = { "60 %", "75 %", "100 %" };
+    const int def = WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes);
+    for (int i = 0; i < numSizes; ++i)
+    {
+        size.addItem (101 + i, String (sizeNames[i]) + (i == def ? "  (default)" : ""), true, std::abs (h - sizeHeight (i)) < 8);
+        defSize.addItem (120 + i, sizeNames[i], true, i == def);
+    }
+    size.addSeparator();
+    size.addSubMenu ("Default size (new windows)", defSize);
 
     PopupMenu midi, chan;
     const int ch = (int) proc.apvts.getRawParameterValue ("midichan")->load();
@@ -1256,10 +1277,12 @@ void TunaEditor::showContextMenu (int learnIdx)
 
     m.showMenuAsync (PopupMenu::Options().withMousePosition(), [this] (int r)
     {
-        if (r == 101) setWindowHeight (tunaui::heightDefault);
-        else if (r == 102) setWindowHeight (tunaui::height60);
-        else if (r == 103) setWindowHeight (tunaui::height75);
-        else if (r == 104) setWindowHeight (tunaui::height100);
+        if (r >= 101 && r < 101 + numSizes) setWindowHeight (sizeHeight (r - 101));
+        else if (r >= 120 && r < 120 + numSizes)
+        {
+            WigaWindowSize::setDefaultIndex (JucePlugin_Name, r - 120);   // toutes les nouvelles fenêtres de ce plugin
+            setWindowHeight (sizeHeight (r - 120));                       // et cette fenêtre tout de suite
+        }
         else if (handleMidiLearnItem (r)) {}
         else if (r == 210 || r == 211) { if (auto* p = proc.apvts.getParameter ("ccmomentary")) p->setValueNotifyingHost (r == 211 ? 1.0f : 0.0f); }
         else if (r >= 300 && r <= 316) { if (auto* p = proc.apvts.getParameter ("midichan")) p->setValueNotifyingHost (p->convertTo0to1 ((float) (r - 300))); }
