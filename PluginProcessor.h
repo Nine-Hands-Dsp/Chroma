@@ -52,14 +52,15 @@ public:
 
     // ---- MIDI ----
     // v1.3 MIDI Learn : toutes les commandes de la façade (0 footswitch MUTE, 1 MODE, 2 TUNING suivant,
-    // 3 TUNING précédent, 4 REF) ; numéros par défaut = anciens CC 80 à 84
-    struct LearnDef { const char* key; const char* name; int defaultCC; };
+    // 3 TUNING précédent, 4 REF) ; v1.4.1 : aucun CC assigné par défaut (MIDI Learn uniquement) ;
+    // legacyCC = ancienne table d'usine (CC 80 à 84), seulement pour reconnaître un ancien projet jamais modifié (vidé au chargement)
+    struct LearnDef { const char* key; const char* name; int legacyCC; };
     static constexpr int numLearn = 5;
     static const LearnDef& learnDef (int i);
     std::atomic<int> ccMap[numLearn];         // numéro de CC de chaque commande, -1 = non assigné
     std::atomic<int> learnTarget { -1 };      // commande en attente d'un CC (-1 = pas de learn)
     std::atomic<int> lastLearned { -1 };      // dernière commande apprise (lue et remise à -1 par la fenêtre)
-    void resetMidiMap();
+    void clearMidiMap();                      // efface toutes les assignations (aucun CC par défaut)
     std::atomic<int> lastMidiCc { -1 }, lastMidiValue { 0 }, lastMidiStamp { 0 };
 
     std::atomic<int> uiHeight { 0 };          // 0 = aucune taille enregistrée pour cette instance (taille par défaut choisie)

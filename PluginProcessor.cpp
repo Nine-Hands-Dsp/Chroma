@@ -31,9 +31,9 @@ const TunaProcessor::LearnDef& TunaProcessor::learnDef (int i)
     return defs[juce::jlimit (0, numLearn - 1, i)];
 }
 
-void TunaProcessor::resetMidiMap()
+void TunaProcessor::clearMidiMap()
 {
-    for (int i = 0; i < numLearn; ++i) ccMap[i].store (learnDef (i).defaultCC);
+    for (int i = 0; i < numLearn; ++i) ccMap[i].store (-1);
 }
 
 TunaProcessor::TunaProcessor()
@@ -47,7 +47,7 @@ TunaProcessor::TunaProcessor()
     pMidiChan = apvts.getRawParameterValue ("midichan");
     pMomentary = apvts.getRawParameterValue ("ccmomentary");
     for (int i = 0; i < numQueued; ++i) { pendingValue[i] = 0.0f; pendingSet[i] = false; }
-    resetMidiMap();
+    clearMidiMap();                           // aucun CC assigné par défaut
     engine.prepare (48000.0);
     refreshEngineTuning();
     startTimerHz (60);
@@ -280,8 +280,18 @@ void TunaProcessor::setStateInformation (const void* data, int size)
         const int uh = (int) state.getProperty ("uiHeight", 0);    // absent = taille par défaut choisie dans le menu
         uiHeight.store (uh > 0 ? juce::jlimit (tunaui::heightDefault, tunaui::heightMax, uh) : 0);
     }
-    for (int i = 0; i < numLearn; ++i)
-        ccMap[i].store (juce::jlimit (-1, 127, (int) state.getProperty (learnDef (i).key, learnDef (i).defaultCC)));
+    {
+        // assignations MIDI Learn (-1 = non assigné ; projet sans ces propriétés : rien d'assigné)
+        // ancien projet dont la table est exactement l'ancienne table d'usine (CC 80 à 84) : jamais modifiée -> vidée
+        int loaded[numLearn];
+        bool factory = true;
+        for (int i = 0; i < numLearn; ++i)
+        {
+            loaded[i] = juce::jlimit (-1, 127, (int) state.getProperty (learnDef (i).key, -1));
+            factory = factory && loaded[i] == learnDef (i).legacyCC;
+        }
+        for (int i = 0; i < numLearn; ++i) ccMap[i].store (factory ? -1 : loaded[i]);
+    }
 
     const juce::String key = state.getProperty ("tuningKey").toString();
     int idx = library.indexOfKey (key);

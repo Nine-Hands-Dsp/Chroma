@@ -1228,7 +1228,7 @@ bool TunaEditor::handleMidiLearnItem (int r)
         flash (String (TunaProcessor::learnDef (r - 1100).name).toUpperCase() + " : MIDI CLEARED");
     }
     else if (r == 1200) { proc.learnTarget.store (-1); flash ("MIDI LEARN CANCELLED"); }
-    else if (r == 1201) { proc.learnTarget.store (-1); proc.resetMidiMap(); flash ("CC 80-84"); }
+    else if (r == 1201) { proc.learnTarget.store (-1); proc.clearMidiMap(); flash ("MIDI CLEARED"); }
     else return false;
     return true;
 }
@@ -1261,7 +1261,7 @@ void TunaEditor::showContextMenu (int learnIdx)
                       true, proc.learnTarget.load() == i);
     }
     if (proc.learnTarget.load() >= 0) midi.addItem (1200, "Cancel MIDI learn");
-    midi.addItem (1201, "Reset MIDI to defaults (CC 80-84)");
+    midi.addItem (1201, "Clear all MIDI assignments");
     midi.addSeparator();
     const bool mom = proc.apvts.getRawParameterValue ("ccmomentary")->load() > 0.5f;
     midi.addItem (210, "Footswitch: latching pedal", true, ! mom);
