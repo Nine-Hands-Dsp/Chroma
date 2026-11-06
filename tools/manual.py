@@ -1,4 +1,4 @@
-# CHROMA (Studio Wiga) - notice PDF bilingue (partie anglaise complete, puis partie francaise complete).
+# CHROMA (NINE HANDS | DSP) - notice PDF bilingue (partie anglaise complete, puis partie francaise complete).
 # Usage : python3 tools/manual.py [fichier PDF de sortie]   (defaut : docs/CHROMA_Manual_EN-FR_v<VERSION>.pdf)
 # Illustrations : tools/manual_assets/ (captures du rendu reel du plugin reprises de la notice 1.3.0 ; aucune ne montre
 # le menu clic droit, elles restent justes). Les accordages d'usine sont lus directement dans Tunings.h.
@@ -8,12 +8,12 @@ NAME = "CHROMA"
 import re as _re, os as _os
 VERSION = _re.search(r"project\(\w+ VERSION ([0-9.]+)", open(_os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "CMakeLists.txt")).read()).group(1)   # version du plugin
 TITLE = "CHROMA"
-FOOTER = {"en": "CHROMA " + VERSION + " · Studio Wiga", "fr": "CHROMA " + VERSION + " · Studio Wiga"}
+FOOTER = {"en": "CHROMA " + VERSION + " · NINE HANDS | DSP", "fr": "CHROMA " + VERSION + " · NINE HANDS | DSP"}
 from reportlab.lib import colors
 ACC = colors.HexColor("#E2733B")       # orange de la pedale
 H1COL = colors.HexColor("#1B1D22"); H2COL = ACC
 HCELLBG = colors.HexColor("#1B1D22"); HCELLTXT = colors.white
-# ---------- mise en page commune (style maison Studio Wiga) ----------
+# ---------- mise en page commune (style maison NINE HANDS | DSP) ----------
 import os, sys
 from PIL import Image
 from reportlab.lib.pagesizes import A4
@@ -92,7 +92,7 @@ def cover(t, cover_img, cover_w):
 
 def build(sections, title):
     doc = BaseDocTemplate(OUT, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=17 * mm, bottomMargin=18 * mm,
-                          title=title, author="Studio Wiga")
+                          title=title, author="NINE HANDS | DSP")
     lang = {"v": "en"}
     def deco(c, d):
         c.saveState()
@@ -153,7 +153,7 @@ T = {
  lang="ENGLISH", sub="Polyphonic tuner for guitar &amp; bass &nbsp;·&nbsp; Mono · Poly · Strobe &nbsp;·&nbsp; VST3",
  ver="User manual &nbsp;·&nbsp; version " + VERSION,
  intro_t="1. Introduction",
- intro="<b>CHROMA</b> is a VST3 tuner designed by Studio Wiga for guitar and bass, with the look of a real stompbox. Strum all your strings at once and see which ones are off (<b>POLY</b>), fine-tune one string with a large display (<b>MONO</b>) or with stroboscopic accuracy (<b>STROBE</b>). Its pedal format and polyphonic mode are inspired by the <b>TC Electronic PolyTune</b>. It was built from the ground up for very low tunings: G#0, F0, E0 and even D0 (about 18 Hz) are measured reliably. CHROMA was previously called Tuna.",
+ intro="<b>CHROMA</b> is a VST3 tuner designed by NINE HANDS | DSP for guitar and bass, with the look of a real stompbox. Strum all your strings at once and see which ones are off (<b>POLY</b>), fine-tune one string with a large display (<b>MONO</b>) or with stroboscopic accuracy (<b>STROBE</b>). Its pedal format and polyphonic mode are inspired by the <b>TC Electronic PolyTune</b>. It was built from the ground up for very low tunings: G#0, F0, E0 and even D0 (about 18 Hz) are measured reliably. CHROMA was previously called Tuna.",
  does_t="What it does",
  does=["<b>Three modes</b>: MONO (large note + ±50 cent bar), POLY (all strings at once), STROBE (moving bands, ±0.1 cent).",
        "<b>Very low range</b>: about 16 Hz to 1.6 kHz; octave errors on weak fundamentals are detected and corrected.",
@@ -165,7 +165,7 @@ T = {
  inst_t="2. Installation",
  inst=["<b>Windows</b>: copy <b>Chroma.vst3</b> into <b>C:\\Program Files\\Common Files\\VST3\\</b>.",
        "<b>macOS</b> (universal, Apple Silicon and Intel): copy <b>Chroma.vst3</b> into <b>~/Library/Audio/Plug-Ins/VST3/</b>, then run once in Terminal: <i>xattr -cr ~/Library/Audio/Plug-Ins/VST3/Chroma.vst3</i>.",
-       "<b>Reaper</b>: Options &gt; Preferences &gt; Plug-ins &gt; VST &gt; <i>Re-scan</i>. The plug-in appears as <b>Chroma (Studio Wiga)</b>.",
+       "<b>Reaper</b>: Options &gt; Preferences &gt; Plug-ins &gt; VST &gt; <i>Re-scan</i>. The plug-in appears as <b>Chroma (NINE HANDS | DSP)</b>.",
        "If you had installed <b>Tuna.vst3</b> (or CHROMA.vst3 from version 1.1.0), delete it: CHROMA keeps the same internal ID so Reaper finds it in your existing projects, and your Tuna custom tunings and favourites are imported automatically."],
  ui_t="3. The interface",
  ui_cap="Every control drawn on the pedal is live. Numbers refer to the table below and to section 4.",
@@ -195,7 +195,7 @@ T = {
  menu_cap="ALL, FAVORITES and CUSTOM tabs.",
  cust_t="Custom tunings",
  cust=["In the editor, set the name, the number of strings (1 to 10), then each string with − / + (semitone) and « / » (octave). Frequencies follow the current reference. <b>Save</b>, <b>Delete</b> or <b>Cancel</b>.",
-       "Custom tunings and favourites are stored in a file shared by all instances (right-click &gt; <i>Show tunings file</i>): <i>%APPDATA%\\Studio Wiga\\Chroma\\library.xml</i> on Windows, <i>~/Library/Studio Wiga/Chroma/library.xml</i> on macOS. The selected tuning is also saved inside your project."],
+       "Custom tunings and favourites are stored in a file shared by all instances (right-click &gt; <i>Show tunings file</i>): <i>%APPDATA%\\NINE HANDS | DSP\\Chroma\\library.xml</i> on Windows, <i>~/Library/NINE HANDS | DSP/Chroma/library.xml</i> on macOS. The selected tuning is also saved inside your project."],
  fs_t="5. Footswitch, LEDs and modes",
  fs_h="TUNE / MUTE footswitch",
  fs="A click on the footswitch mutes the output with a short, click-free fade; the red <b>MUTE</b> LED lights up. Click again to hear your guitar. The tuner keeps working, muted or not. The amber LED above MONO, POLY or STROBE shows the active mode.",
@@ -227,7 +227,7 @@ T = {
  midi_note="Mute, Mode and Reference A4 are also host parameters: they can be automated or mapped from the DAW (Reaper: Param &gt; Learn).",
  win_t="7. Window",
  win=["Right-click anywhere (outside a control, or on the screen) &gt; <b>Plugin size</b>: <b>60 %</b>, <b>75 %</b>, <b>100 %</b> (the current size is ticked); <i>(default)</i> is shown next to the default size. You can also drag the bottom-right corner (aspect ratio kept). The window can never be made smaller than 60 %.",
-      "<b>Plugin size &gt; Default size (new windows)</b> chooses the size at which every new CHROMA window opens (60 % at first). This setting is common to all instances and saved on your computer (<i>settings.xml</i> in the Studio Wiga\\Chroma folder, next to the tunings file); the open window takes that size at once.",
+      "<b>Plugin size &gt; Default size (new windows)</b> chooses the size at which every new CHROMA window opens (60 % at first). This setting is common to all instances and saved on your computer (<i>settings.xml</i> in the NINE HANDS | DSP\\Chroma folder, next to the tunings file); the open window takes that size at once.",
       "Once you change the size of a window (menu or corner), that instance remembers its own size in the project, and this size takes priority over the default size when the project is reopened. An instance whose size was never changed opens at the default size.",
       "The same right-click menu holds <b>MIDI</b> (section 6), <b>Custom tunings...</b> (opens the CUSTOM tab) and <b>Show tunings file</b>. CHROMA has no separate status line: messages (new tuning, A4 = 440 Hz, MIDI Learn prompts and confirmations) appear as a banner on the screen."],
  pre_t="8. Factory tunings (presets)",
@@ -262,7 +262,7 @@ T = {
  lang="FRANÇAIS", sub="Accordeur polyphonique guitare &amp; basse &nbsp;·&nbsp; Mono · Poly · Strobe &nbsp;·&nbsp; VST3",
  ver="Notice d'utilisation &nbsp;·&nbsp; version " + VERSION,
  intro_t="1. Présentation",
- intro="<b>CHROMA</b> est un accordeur VST3 conçu par Studio Wiga pour guitare et basse, avec l'allure d'une vraie pédale. Grattez toutes les cordes d'un coup et voyez celles qui sont fausses (<b>POLY</b>), affinez une corde sur un grand affichage (<b>MONO</b>) ou avec la précision d'un stroboscope (<b>STROBE</b>). Son format pédale et son mode polyphonique s'inspirent du <b>TC Electronic PolyTune</b>. Il a été pensé dès le départ pour les accordages très graves : Sol#0, Fa0, Mi0 et même Ré0 (environ 18 Hz) sont mesurés de façon fiable. CHROMA s'appelait auparavant Tuna.",
+ intro="<b>CHROMA</b> est un accordeur VST3 conçu par NINE HANDS | DSP pour guitare et basse, avec l'allure d'une vraie pédale. Grattez toutes les cordes d'un coup et voyez celles qui sont fausses (<b>POLY</b>), affinez une corde sur un grand affichage (<b>MONO</b>) ou avec la précision d'un stroboscope (<b>STROBE</b>). Son format pédale et son mode polyphonique s'inspirent du <b>TC Electronic PolyTune</b>. Il a été pensé dès le départ pour les accordages très graves : Sol#0, Fa0, Mi0 et même Ré0 (environ 18 Hz) sont mesurés de façon fiable. CHROMA s'appelait auparavant Tuna.",
  does_t="Ce qu'il fait",
  does=["<b>Trois modes</b> : MONO (grande note + barre ±50 cents), POLY (toutes les cordes d'un coup), STROBE (bandes mobiles, ±0,1 cent).",
        "<b>Très grave</b> : d'environ 16 Hz à 1,6 kHz ; les erreurs d'octave sur les fondamentales faibles sont détectées et corrigées.",
@@ -274,7 +274,7 @@ T = {
  inst_t="2. Installation",
  inst=["<b>Windows</b> : copiez <b>Chroma.vst3</b> dans <b>C:\\Program Files\\Common Files\\VST3\\</b>.",
        "<b>macOS</b> (universel, Apple Silicon et Intel) : copiez <b>Chroma.vst3</b> dans <b>~/Library/Audio/Plug-Ins/VST3/</b>, puis lancez une fois dans le Terminal : <i>xattr -cr ~/Library/Audio/Plug-Ins/VST3/Chroma.vst3</i>.",
-       "<b>Reaper</b> : Options &gt; Préférences &gt; Plug-ins &gt; VST &gt; <i>Re-scan</i>. Le plugin apparaît sous le nom <b>Chroma (Studio Wiga)</b>.",
+       "<b>Reaper</b> : Options &gt; Préférences &gt; Plug-ins &gt; VST &gt; <i>Re-scan</i>. Le plugin apparaît sous le nom <b>Chroma (NINE HANDS | DSP)</b>.",
        "Si vous aviez installé <b>Tuna.vst3</b> (ou CHROMA.vst3 de la version 1.1.0), supprimez-le : CHROMA garde le même identifiant interne pour que Reaper le retrouve dans vos projets, et vos accordages perso et favoris de Tuna sont repris automatiquement."],
  ui_t="3. L'interface",
  ui_cap="Chaque commande dessinée sur la pédale est active. Les numéros renvoient au tableau ci-dessous et à la section 4.",
@@ -304,7 +304,7 @@ T = {
  menu_cap="Onglets ALL, FAVORITES et CUSTOM.",
  cust_t="Accordages perso",
  cust=["Dans l'éditeur, réglez le nom, le nombre de cordes (1 à 10), puis chaque corde avec − / + (demi-ton) et « / » (octave). Les fréquences suivent la référence courante. <b>Save</b>, <b>Delete</b> ou <b>Cancel</b>.",
-       "Accordages perso et favoris sont stockés dans un fichier commun à toutes les instances (clic droit &gt; <i>Show tunings file</i>) : <i>%APPDATA%\\Studio Wiga\\Chroma\\library.xml</i> sous Windows, <i>~/Library/Studio Wiga/Chroma/library.xml</i> sous macOS. L'accordage choisi est aussi enregistré dans le projet."],
+       "Accordages perso et favoris sont stockés dans un fichier commun à toutes les instances (clic droit &gt; <i>Show tunings file</i>) : <i>%APPDATA%\\NINE HANDS | DSP\\Chroma\\library.xml</i> sous Windows, <i>~/Library/NINE HANDS | DSP/Chroma/library.xml</i> sous macOS. L'accordage choisi est aussi enregistré dans le projet."],
  fs_t="5. Footswitch, LED et modes",
  fs_h="Footswitch TUNE / MUTE",
  fs="Un clic sur le footswitch coupe la sortie avec un fondu court, sans clic ; la LED rouge <b>MUTE</b> s'allume. Recliquez pour réentendre la guitare. L'accordeur fonctionne toujours, coupé ou non. La LED ambre au-dessus de MONO, POLY ou STROBE indique le mode actif.",
@@ -336,7 +336,7 @@ T = {
  midi_note="Mute, Mode et Reference A4 sont aussi des paramètres de l'hôte : automatisables ou assignables depuis le DAW (Reaper : Param &gt; Learn).",
  win_t="7. Fenêtre",
  win=["Clic droit n'importe où (hors commande, ou sur l'écran) &gt; <b>Plugin size</b> : <b>60 %</b>, <b>75 %</b>, <b>100 %</b> (la taille actuelle est cochée) ; <i>(default)</i> est indiqué à côté de la taille par défaut. Vous pouvez aussi tirer le coin inférieur droit (proportions conservées). La fenêtre ne peut jamais être plus petite que 60 %.",
-      "<b>Plugin size &gt; Default size (new windows)</b> choisit la taille d'ouverture de toutes les nouvelles fenêtres de CHROMA (60 % au départ). Ce réglage est commun à toutes les instances et enregistré sur l'ordinateur (<i>settings.xml</i> dans le dossier Studio Wiga\\Chroma, à côté du fichier des accordages) ; la fenêtre ouverte prend aussi cette taille tout de suite.",
+      "<b>Plugin size &gt; Default size (new windows)</b> choisit la taille d'ouverture de toutes les nouvelles fenêtres de CHROMA (60 % au départ). Ce réglage est commun à toutes les instances et enregistré sur l'ordinateur (<i>settings.xml</i> dans le dossier NINE HANDS | DSP\\Chroma, à côté du fichier des accordages) ; la fenêtre ouverte prend aussi cette taille tout de suite.",
       "Dès que vous changez la taille d'une fenêtre (menu ou coin), cette instance mémorise sa propre taille dans le projet, et cette taille reste prioritaire sur la taille par défaut à la réouverture du projet. Une instance dont la taille n'a jamais été changée s'ouvre à la taille par défaut.",
       "Le même menu contient <b>MIDI</b> (section 6), <b>Custom tunings...</b> (ouvre l'onglet CUSTOM) et <b>Show tunings file</b>. CHROMA n'a pas de ligne d'état séparée : les messages (nouvel accordage, A4 = 440 Hz, invites et confirmations du MIDI Learn) s'affichent en bandeau sur l'écran."],
  pre_t="8. Accordages d'usine (presets)",

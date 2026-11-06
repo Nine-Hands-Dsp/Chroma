@@ -1042,7 +1042,7 @@ Rectangle<int> TunaEditor::menuBounds() const
 // Avec certains pilotes (Intel notamment) la fenêtre du plugin cesse de se rafraîchir alors que
 // le DAW continue de tourner. Le moteur logiciel est stable partout et largement assez rapide ici.
 //
-// Anti-gel v2 (Studio Wiga) :
+// Anti-gel v2 (NINE HANDS | DSP) :
 //  1. moteur de rendu logiciel forcé sur Windows, appliqué à chaque nouvelle fenêtre hôte (peer)
 //     et revérifié toutes les secondes, jamais en boucle ;
 //  2. aucun calcul lourd dans paint() : le fond mis à l'échelle est refait par le timer seulement,

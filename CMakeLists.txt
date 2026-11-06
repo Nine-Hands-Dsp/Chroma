@@ -35,7 +35,7 @@ juce_add_binary_data(ChromaAssets SOURCES
   IBMPlexSans-SemiBold.ttf)
 
 juce_add_plugin(Chroma
-  COMPANY_NAME               "Studio Wiga"
+  COMPANY_NAME               "NINE HANDS | DSP"
   PLUGIN_MANUFACTURER_CODE   Wiga
   PLUGIN_CODE                Tuna   # identifiant conservé depuis Tuna (projets Reaper existants)
   FORMATS                    ${TUNA_FORMATS}

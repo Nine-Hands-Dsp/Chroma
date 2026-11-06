@@ -105,7 +105,7 @@ void TunaProcessor::AnalysisThread::run()
 }
 
 //==============================================================================
-// Anti-gel v2 (Studio Wiga) : jamais d'appel à l'hôte (setValueNotifyingHost, triggerAsyncUpdate) ni
+// Anti-gel v2 (NINE HANDS | DSP) : jamais d'appel à l'hôte (setValueNotifyingHost, triggerAsyncUpdate) ni
 // d'allocation depuis le thread audio. Le MIDI met la valeur en file ; le timer du processeur (60 Hz,
 // thread message) la transmet au DAW et à la fenêtre, et traite les changements d'accordage demandés.
 const char* TunaProcessor::queuedId (int i)

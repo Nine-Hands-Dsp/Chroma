@@ -1,4 +1,4 @@
-# CHROMA — Studio Wiga
+# CHROMA — NINE HANDS | DSP
 
 Accordeur **VST3** (Windows 64 bits + macOS universel Apple Silicon/Intel) pour guitare et basse, au format pédale
 (visuel « CHROMA Polyphonic Tuner », anciennement Tuna). Modes **MONO**, **POLY** (toutes les cordes d'un coup) et **STROBE**,
@@ -11,7 +11,7 @@ précis jusqu'aux accordages très graves (G#0, F0, E0 et même D0 ≈ 18 Hz).
    - `Chroma-VST3-Windows` → copie `Chroma.vst3` dans `C:\Program Files\Common Files\VST3\`
    - `Chroma-VST3-macOS` → copie `Chroma.vst3` dans `~/Library/Audio/Plug-Ins/VST3/` puis lance une fois
      `xattr -cr ~/Library/Audio/Plug-Ins/VST3/Chroma.vst3`
-4. Dans Reaper : re-scanne les plug-ins. Le plugin apparaît comme **Chroma (Studio Wiga)**.
+4. Dans Reaper : re-scanne les plug-ins. Le plugin apparaît comme **Chroma (NINE HANDS | DSP)**.
 
 Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la précision sur des cordes synthétiques
 (D0 → E6 en mono, 11 accordages en poly). S'il échoue, le build est signalé en rouge.
@@ -33,7 +33,7 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
   Program Change n = n-ième favori (ou n-ième accordage s'il n'y a pas de favoris).
   Clic droit sur une commande (MODE, TUNING et ses flèches, REF, footswitch) : « MIDI Learn » / « Clear MIDI » de cette commande.
 - **Custom tunings…** / **Show tunings file** : accordages perso et favoris, communs à toutes les instances
-  (`%APPDATA%\Studio Wiga\Chroma\library.xml` / `~/Library/Application Support/Studio Wiga/Chroma/library.xml`).
+  (`%APPDATA%\NINE HANDS | DSP\Chroma\library.xml` / `~/Library/Application Support/NINE HANDS | DSP/Chroma/library.xml`).
   L'accordage choisi est aussi enregistré dans le projet.
 
 ## Fonctionnement (résumé)
@@ -54,7 +54,7 @@ Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
 - **1.2.0** — v1.2.0 : anti-gel v2 (JUCE 8.0.15, caches refaits par le timer, chien de garde, aucun appel à l'hôte depuis le thread audio).
 - **1.1.3** — affichage MONO : repère central blanc fin (vert quand c'est juste) et curseur jaune plus petit qui glisse en continu avec la note jouée.
 - **1.1.2** — le plugin s'ouvre en mode **MONO** par défaut (au lieu de POLY). Les projets déjà enregistrés gardent leur mode.
-- **1.1.1** — nom du plugin dans le DAW : **Chroma (Studio Wiga)** (fichier `Chroma.vst3`) ; le titre de la pédale reste CHROMA. Si vous aviez installé `CHROMA.vst3` (1.1.0), supprimez-le.
+- **1.1.1** — nom du plugin dans le DAW : **Chroma (NINE HANDS | DSP)** (fichier `Chroma.vst3`) ; le titre de la pédale reste CHROMA. Si vous aviez installé `CHROMA.vst3` (1.1.0), supprimez-le.
 - **1.1.0** — le plugin s'appelle désormais **CHROMA** (nouveau titre sur la pédale). **Supprimez l'ancien `Tuna.vst3`**
   (même identifiant interne, conservé pour que Reaper puisse retrouver le plugin dans les projets existants ; sinon,
   remplacez Tuna par CHROMA dans la chaîne). Les accordages perso et favoris de Tuna sont repris automatiquement. Écran redessiné seulement quand son contenu change, fond mis en cache.
