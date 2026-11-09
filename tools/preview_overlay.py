@@ -47,11 +47,15 @@ for i, m in enumerate(modes):
     g.append(f'<rect x="{bx}" y="{by}" width="{w_}" height="{bh}" rx="9" fill="{ORANGE if on else "none"}" fill-opacity="{0.95 if on else 0}" stroke="{ORANGE}" stroke-opacity="{1 if on else 0.55}" stroke-width="2.5"/>')
     g.append(f'<text x="{bx + w_ / 2}" y="{by + bh / 2 + 1}" font-family="Plex" font-size="27" fill="{"#140c06" if on else ORANGE}" text-anchor="middle" dominant-baseline="central">{m}</text>')
     bx += w_ + 12
-rx1 = X1
-g.append(f'<rect x="{rx1 - 250}" y="{by}" width="250" height="{bh}" rx="9" fill="none" stroke="{ORANGE}" stroke-opacity="0.55" stroke-width="2.5"/>')
-g.append(f'<text x="{rx1 - 225}" y="{by + bh / 2 + 1}" font-family="Plex" font-size="26" fill="{ORANGE}" dominant-baseline="central">&#9664;</text>')
-g.append(f'<text x="{rx1 - 125}" y="{by + bh / 2 + 1}" font-family="Plex" font-size="31" fill="{ORANGE}" text-anchor="middle" dominant-baseline="central">A=440</text>')
-g.append(f'<text x="{rx1 - 25}" y="{by + bh / 2 + 1}" font-family="Plex" font-size="26" fill="{ORANGE}" text-anchor="end" dominant-baseline="central">&#9654;</text>')
+# reference juste apres les modes, puis logo CHROMA (sans les traits du dessus) a droite
+rx0 = bx
+g.append(f'<rect x="{rx0}" y="{by}" width="250" height="{bh}" rx="9" fill="none" stroke="{ORANGE}" stroke-opacity="0.55" stroke-width="2.5"/>')
+g.append(f'<text x="{rx0 + 25}" y="{by + bh / 2 + 1}" font-family="Plex" font-size="26" fill="{ORANGE}" dominant-baseline="central">&#9664;</text>')
+g.append(f'<text x="{rx0 + 125}" y="{by + bh / 2 + 1}" font-family="Plex" font-size="31" fill="{ORANGE}" text-anchor="middle" dominant-baseline="central">A=440</text>')
+g.append(f'<text x="{rx0 + 225}" y="{by + bh / 2 + 1}" font-family="Plex" font-size="26" fill="{ORANGE}" text-anchor="end" dominant-baseline="central">&#9654;</text>')
+wm = open(os.path.join(ROOT, 'assets', 'Chroma_Wordmark_White.svg')).read()
+wm_w = min(X1 - (rx0 + 250) - 40, 300.0); wm_h = wm_w * 295 / 2032
+g.append(f'<image href="data:image/svg+xml;base64,{base64.b64encode(wm.encode()).decode()}" x="{X1 - wm_w}" y="{by + (bh - wm_h) / 2}" width="{wm_w}" height="{wm_h}"/>')
 # rangee 2 : accordage (remplace le potard TUNING) : fleches + menu deroulant
 ty = by + bh + 22; th = 84
 tuned = MODE == 'poly'

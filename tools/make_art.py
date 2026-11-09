@@ -176,7 +176,7 @@ facing = np.maximum(bottom_edge, right_edge)
 rim = np.clip(1 - np.abs(sd_i + 1.0) / 1.0, 0, 1)                      # arete exterieure du bevel
 rim_soft = cv2.GaussianBlur(rim, (0, 0), 1.2) * 0.5
 hl = (rim * 0.9 + rim_soft) * facing
-img += (hl * 170)[..., None] * np.array([0.92, 0.96, 1.0])
+img += (hl * 136)[..., None]   # opacite -20 % * np.array([0.92, 0.96, 1.0])
 
 # ---- occlusion autour de la LED et du footswitch
 def occlusion(mask, strength=1.0):
