@@ -4,6 +4,13 @@ Accordeur **VST3** (Windows 64 bits + macOS universel Apple Silicon/Intel) pour 
 (visuel « CHROMA Polyphonic Tuner », anciennement Tuna). Modes **MONO**, **POLY** (toutes les cordes d'un coup) et **STROBE**,
 précis jusqu'aux accordages très graves (G#0, F0, E0 et même D0 ≈ 18 Hz).
 
+<p align="center">
+  <a href="https://github.com/Nine-Hands-Dsp/Tuna/releases/latest/download/Chroma-VST3-Windows.zip"><img alt="Télécharger pour Windows" src="https://img.shields.io/badge/%E2%AC%87%20T%C3%A9l%C3%A9charger-Windows-0078D6?style=for-the-badge"></a>
+  <a href="https://github.com/Nine-Hands-Dsp/Tuna/releases/latest/download/Chroma-VST3-macOS.zip"><img alt="Télécharger pour macOS" src="https://img.shields.io/badge/%E2%AC%87%20T%C3%A9l%C3%A9charger-macOS-111111?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <br>
+  <a href="https://github.com/Nine-Hands-Dsp/Tuna/releases/latest"><img alt="Dernière version" src="https://img.shields.io/github/v/release/Nine-Hands-Dsp/Tuna?label=derni%C3%A8re%20version&color=919496"></a>
+</p>
+
 ## Compiler avec GitHub
 1. Mets **tous les fichiers à la racine du dépôt** (avec le dossier `.github/workflows`).
 2. Un push lance l'onglet **Actions** → workflow *Build Chroma VST3 (Windows + macOS)*.
