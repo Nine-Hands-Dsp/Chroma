@@ -25,8 +25,6 @@ gx, gy, gw, gh = [u(v) for v in LY['glass']]
 cx = u(LY['title'][0])
 s = []
 # ---- serigraphie
-s.append(f'<text x="{cx}" y="{u(LY["title"][1])}" font-family="PopB" font-size="132" letter-spacing="30" fill="{ORANGE}" text-anchor="middle" dominant-baseline="central">CHROMA</text>')
-s.append(f'<text x="{cx}" y="{u(LY["sub"][1])}" font-family="PopL" font-size="34" letter-spacing="13" fill="#dfe2e5" text-anchor="middle" dominant-baseline="central">POLYPHONIC TUNER</text>')
 for key, txt, rot in (('ioOut', 'OUTPUT', -90), ('ioIn', 'INPUT', 90)):
     x, y = u(LY[key][0]), u(LY[key][1])
     s.append(f'<text x="{x}" y="{y}" transform="rotate({rot} {x} {y})" font-family="PopM" font-size="27" letter-spacing="6" fill="#dfe2e5" text-anchor="middle" dominant-baseline="central">{txt}</text>')
@@ -100,26 +98,26 @@ if MODE == 'poly':
         g.append(f'<text x="{x}" y="{yl}" font-family="Plex" font-size="30" fill="{GREY}" fill-opacity="0.75" text-anchor="{a}" dominant-baseline="central">{t}</text>')
 else:
     c = -11.1
-    g.append(f'<text x="{(X0 + X1) / 2 - 30}" y="{area_top + 175}" font-family="Plex" font-size="330" fill="{AMBER}" text-anchor="middle" dominant-baseline="central">E</text>')
-    g.append(f'<text x="{(X0 + X1) / 2 + 105}" y="{area_top + 262}" font-family="Plex" font-size="110" fill="{AMBER}" dominant-baseline="central">2</text>')
-    segs, mid = 41, 20; sx0, sx1 = X0 + 10, X1 - 10; pitch = (sx1 - sx0) / segs; sw_ = pitch * 0.6; cyb = area_top + 425
+    g.append(f'<text x="{(X0 + X1) / 2 - 30}" y="{area_top + (area_bot - area_top) * 0.30}" font-family="Plex" font-size="420" fill="{AMBER}" text-anchor="middle" dominant-baseline="central">E</text>')
+    g.append(f'<text x="{(X0 + X1) / 2 + 135}" y="{area_top + (area_bot - area_top) * 0.30 + 115}" font-family="Plex" font-size="140" fill="{AMBER}" dominant-baseline="central">2</text>')
+    segs, mid = 41, 20; sx0, sx1 = X0 + 10, X1 - 10; pitch = (sx1 - sx0) / segs; sw_ = pitch * 0.6; cyb = area_top + (area_bot - area_top) * 0.68
     for k in range(segs):
         if k == mid: continue
-        hh = 80 if (k - mid) % 4 == 0 else 56
+        hh = 100 if (k - mid) % 4 == 0 else 70
         g.append(seg(sx0 + pitch * k + (pitch - sw_) / 2, cyb - hh / 2, sw_, hh, AMB_DIM, False))
     cxm = sx0 + pitch * (mid + 0.5)
-    mw, mh, cw_, ch_ = sw_ * 1.1, 180, sw_ * 0.8, 134
+    mw, mh, cw_, ch_ = sw_ * 1.1, 220, sw_ * 0.8, 164
     g.append(f'<rect x="{cxm - mw / 2}" y="{cyb - mh / 2}" width="{mw}" height="{mh}" rx="3" fill="#fff" fill-opacity="0.95"/>')
     cx2 = cxm + c / 2.5 * pitch
     g.append(seg(cx2 - cw_ / 2, cyb - ch_ / 2, cw_, ch_, AMBER, True))
-    g.append(f'<text x="{sx0}" y="{cyb + 125}" font-family="Plex" font-size="30" fill="{GREY}" fill-opacity="0.7" dominant-baseline="central">-50</text>')
-    g.append(f'<text x="{sx1}" y="{cyb + 125}" font-family="Plex" font-size="30" fill="{GREY}" fill-opacity="0.7" text-anchor="end" dominant-baseline="central">+50</text>')
-    g.append(f'<text x="{(X0 + X1) / 2}" y="{gy + gh - 62}" font-family="Plex" font-size="80" fill="{AMBER}" text-anchor="middle" dominant-baseline="central">-11.1 c</text>')
+    g.append(f'<text x="{sx0}" y="{cyb + 145}" font-family="Plex" font-size="30" fill="{GREY}" fill-opacity="0.7" dominant-baseline="central">-50</text>')
+    g.append(f'<text x="{sx1}" y="{cyb + 145}" font-family="Plex" font-size="30" fill="{GREY}" fill-opacity="0.7" text-anchor="end" dominant-baseline="central">+50</text>')
+    g.append(f'<text x="{(X0 + X1) / 2}" y="{gy + gh - 62}" font-family="Plex" font-size="96" fill="{AMBER}" text-anchor="middle" dominant-baseline="central">-11.1 c</text>')
     g.append(f'<text x="{X0}" y="{gy + gh - 62}" font-family="Plex" font-size="32" fill="{GREY}" fill-opacity="0.75" dominant-baseline="central">81.88 Hz</text>')
     g.append(f'<text x="{X1}" y="{gy + gh - 62}" font-family="Plex" font-size="32" fill="{GREY}" fill-opacity="0.75" text-anchor="end" dominant-baseline="central">STRING 6</text>')
 # reflet du verre
 g.append(f'<path d="M{gx},{gy} L{gx + gw * 0.62},{gy} L{gx},{gy + gh * 0.55} Z" fill="url(#gl)"/>')
-s.append(f'<clipPath id="gc"><rect x="{gx}" y="{gy}" width="{gw}" height="{gh}" rx="24"/></clipPath><g clip-path="url(#gc)">' + ''.join(g) + '</g>')
+s.append(f'<clipPath id="gc"><rect x="{gx}" y="{gy}" width="{gw}" height="{gh}" rx="26"/></clipPath><g clip-path="url(#gc)">' + ''.join(g) + '</g>')
 
 svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="2470" height="3600" viewBox="0 0 1235 1800">
 <defs><style>{FONTS}</style><linearGradient id="gl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.07"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>

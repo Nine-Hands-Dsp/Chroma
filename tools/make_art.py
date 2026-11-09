@@ -35,15 +35,16 @@ JACK_PROT = math.floor(_j[1] * AS) / AS
 PX0, PW = JACK_PROT, OW - 2 * JACK_PROT
 PY0, PH, PR = 0.0, float(OH), 62.0
 CX = PX0 + PW / 2
-TITLE_Y, SUB_Y = 150.0, 252.0
-SCR_W = round(PW * 0.8)                               # ecran : 4/5 de la largeur du boitier
-SCREEN = (CX - SCR_W / 2, 322.0, SCR_W, 990.0)        # cadre exterieur
-BEZEL = 20.0
-GLASS = (SCREEN[0] + BEZEL, SCREEN[1] + BEZEL, SCREEN[2] - 2 * BEZEL, SCREEN[3] - 2 * BEZEL)
+TITLE_Y, SUB_Y = 0.0, 0.0                              # plus de titre (v2 : ecran maximal)
+IO_X = 36.0                                           # centre des textes INPUT / OUTPUT depuis le bord du boitier
+SX0 = PX0 + 74.0                                      # ecran sans cadre, le plus grand possible
+SCREEN = (SX0, 68.0, OW - 2 * SX0, 1290.0)
+BEZEL = 0.0
+GLASS = SCREEN
 JACK_Y = 1110.0
-LED = (CX, 1402.0); LED_LENS = 21.0
-FS = (CX, 1572.0); FS_FLATS = 206.0
-LOGO_C, LOGO_W = (CX, 1736.0), 380.0
+LED = (CX, 1420.0); LED_LENS = 21.0
+FS = (CX, 1590.0); FS_FLATS = 206.0
+LOGO_C, LOGO_W = (CX, 1742.0), 380.0
 
 YY, XX = np.mgrid[0:H, 0:W].astype(np.float32)
 UX, UY = (XX + 0.5) / AS, (YY + 0.5) / AS
@@ -109,21 +110,14 @@ img = encl * body[..., None]
 print('ecran...')
 sx, sy, sw, sh = SCREEN
 sd_o = rrect_sd(UX, UY, sx, sy, sw, sh, 26.0)
-sd_i = rrect_sd(UX, UY, *GLASS, 12.0)
+sd_i = rrect_sd(UX, UY, *GLASS, 26.0)
 # ombre du creux autour du cadre (le cadre est encastre dans la facade)
 ring_out = np.clip(0.5 - sd_o * AS, 0, 1)
-occ = cv2.GaussianBlur(ring_out, (0, 0), 10 * AS) * (1 - ring_out)
-img *= (1 - 0.45 * occ * body)[..., None]
-# cadre : profil arrondi (chanfrein) -> normales
-t = np.clip(-sd_o / BEZEL, 0, 1)
-prof = np.sin(t * math.pi) * 6.0
-gy2, gx2 = np.gradient(cv2.GaussianBlur(prof.astype(np.float32), (0, 0), 1.0), 1.0 / AS)
-n2v = np.dstack([-gx2, -gy2, np.ones_like(prof)]); n2v /= np.linalg.norm(n2v, axis=2, keepdims=True)
-d2 = np.clip(n2v @ L, 0, 1); h2 = np.clip(n2v @ HV, 0, 1)
-brush = cv2.GaussianBlur(np.random.default_rng(3).standard_normal((H, W)).astype(np.float32), (0, 0), sigmaX=0.6, sigmaY=6.0) * 7
-bez = (58 + 70 * d2 + 90 * h2 ** 25 + brush)[..., None] * np.array([0.97, 0.98, 1.0])
-bmask = ring_out * np.clip(0.5 + sd_i * AS, 0, 1)
-img = img * (1 - bmask[..., None]) + bez * bmask[..., None]
+occ = cv2.GaussianBlur(ring_out, (0, 0), 5 * AS) * (1 - ring_out)
+img *= (1 - 0.30 * occ * body)[..., None]
+# pas de cadre : le verre affleure la facade (fin joint sombre + petit reflet sur l'arete basse)
+edge_lo = np.clip(1 - np.abs(sd_o + 1.0) / 1.6, 0, 1)
+img *= (1 - 0.6 * edge_lo * body)[..., None]
 # verre : noir avec ombre interne (le contenu est dessine par le plugin)
 gmask = np.clip(0.5 - sd_i * AS, 0, 1)
 inner = cv2.GaussianBlur((sd_i > -1).astype(np.float32), (0, 0), 7 * AS)
@@ -220,7 +214,7 @@ layout = {"frame": [OW / 2, OH / 2], "screen": [SCREEN[0] / 2, SCREEN[1] / 2, SC
           "fs": [FS[0] / 2, FS[1] / 2], "footR": FS_BTN / 2, "fsS": FS_W / 2, "jackY": JACK_Y / 2,
           "box": [PX0 / 2, PY0 / 2, PW / 2, PH / 2], "title": [CX / 2, TITLE_Y / 2], "sub": [CX / 2, SUB_Y / 2],
           "logo": [LOGO_C[0] / 2, LOGO_C[1] / 2, LOGO_W / 2],
-          "ioOut": [(PX0 + (GLASS[0] - BEZEL - PX0) / 2) / 2, JACK_Y / 2], "ioIn": [(PX0 + PW - (GLASS[0] - BEZEL - PX0) / 2) / 2, JACK_Y / 2]}
+          "ioOut": [(PX0 + IO_X) / 2, JACK_Y / 2], "ioIn": [(PX0 + PW - IO_X) / 2, JACK_Y / 2]}
 json.dump(layout, open(os.path.join(HERE, 'layout.json'), 'w'), indent=1)
 
 # ------------------------------------------------------------------ apercu : LED allumee + calque vectoriel (Chromium)
