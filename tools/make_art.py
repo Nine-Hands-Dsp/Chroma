@@ -37,12 +37,12 @@ PY0, PH, PR = 0.0, float(OH), 62.0
 CX = PX0 + PW / 2
 TITLE_Y, SUB_Y = 0.0, 0.0                              # plus de titre (v2 : ecran maximal)
 IO_X = 36.0                                           # centre des textes INPUT / OUTPUT depuis le bord du boitier
-SX0 = PX0 + 74.0                                      # ecran sans cadre, le plus grand possible
-SCREEN = (SX0, 68.0, OW - 2 * SX0, 1290.0)
+SX0 = PX0 + 34.0                                      # ecran sans cadre, le plus grand possible (plus de textes INPUT / OUTPUT)
+SCREEN = (SX0, 40.0, OW - 2 * SX0, 1345.0)
 BEZEL = 0.0
 GLASS = SCREEN
 JACK_Y = 1110.0
-LED = (CX, 1420.0); LED_LENS = 21.0
+LED = (CX, 1428.0); LED_LENS = 21.0
 FS = (CX, 1590.0); FS_FLATS = 206.0
 LOGO_C, LOGO_W = (CX, 1742.0), 380.0
 
@@ -133,10 +133,10 @@ def occlusion(mask, strength=1.0):
 
 print('LED, footswitch, jacks...')
 # LED : bague chromee (rendu) + lentille photo
-RING_R = LED_LENS * 1.55
+RING_R = LED_LENS * 1.07                               # LED jaune sans bague metal (seulement son joint sombre)
 dl = np.hypot(UX - LED[0], UY - LED[1])
 ring_m = np.clip((RING_R - dl) * AS, 0, 1) * np.clip((dl - LED_LENS * 0.98) * AS, 0, 1)
-occlusion(np.clip((RING_R - dl) * AS, 0, 1), 0.9)
+occlusion(np.clip((RING_R - dl) * AS, 0, 1), 0.6)
 tr = np.clip((dl - LED_LENS) / (RING_R - LED_LENS), 0, 1)
 zr = np.sin(tr * math.pi) * 1.0
 nx = np.where(dl > 0, (UX - LED[0]) / np.maximum(dl, 1e-3), 0) * np.cos(tr * math.pi)
@@ -144,12 +144,11 @@ ny = np.where(dl > 0, (UY - LED[1]) / np.maximum(dl, 1e-3), 0) * np.cos(tr * mat
 nl = np.dstack([-nx * 0.9, -ny * 0.9, 0.35 + zr]); nl /= np.linalg.norm(nl, axis=2, keepdims=True)
 dd = np.clip(nl @ L, 0, 1); hh = np.clip(nl @ HV, 0, 1)
 chrome = (40 + 120 * dd + 140 * hh ** 30 + 25 * hh ** 4)[..., None] * np.array([0.98, 0.99, 1.0])
-img = img * (1 - ring_m[..., None]) + chrome * ring_m[..., None]
-LD, LDON, LS = PC.led_sprites(LED_LENS, AS, colour='red')
+LD, LDON, LS = PC.led_sprites(LED_LENS, AS, colour='yellow')
 over(img, LD, (LED[0] - LS / 2) * AS, (LED[1] - LS / 2) * AS)
 
 # footswitch (photo du kit)
-FSPR, FSREFL, FS_W, FS_BTN = PC.footswitch_sprite(FS_FLATS, AS, refl_colour=(255.0, 70.0, 50.0))
+FSPR, FSREFL, FS_W, FS_BTN = PC.footswitch_sprite(FS_FLATS, AS, refl_colour=(255.0, 190.0, 50.0))
 FSREFL[..., 3] = (FSREFL[..., 3].astype(np.float32) * 0.35).astype(np.uint8)   # reflet discret
 _fa = np.zeros((H, W), np.float32); _n = FSPR.shape[0]
 _x0 = int(round((FS[0] - FS_W / 2) * AS)); _y0 = int(round((FS[1] - FS_W / 2) * AS))
@@ -198,7 +197,7 @@ def glow(c, fn):
     h1, h2 = 14.0, 50.0
     E = 1.1 * h1 ** 3 / (d ** 2 + h1 ** 2) ** 1.5 + 0.176 * h2 ** 3 / (d ** 2 + h2 ** 2) ** 1.5
     E *= np.clip((GR - d) / 40.0, 0, 1); E[d < RING_R] = 0
-    col = np.array([1.0, 0.20, 0.12])
+    col = np.array([1.0, 0.72, 0.14])
     lum = reg.mean(2, keepdims=True)
     lit = reg + (reg * 2.2 + 12.0 * np.clip(lum / 40.0, 0.3, 1.6)) * E[..., None] * col
     add = lit - reg
@@ -207,7 +206,7 @@ def glow(c, fn):
     out = np.dstack([np.clip(rgb, 0, 255), a * 255]).astype(np.uint8)
     Image.fromarray(out, 'RGBA').save(os.path.join(ROOT, fn))
     return out.astype(np.float32), (x0p / AS, y0p / AS, size / AS, size / AS)
-GLOW, GLR = glow(LED, 'glow_red.png')
+GLOW, GLR = glow(LED, 'glow_yellow.png')
 
 layout = {"frame": [OW / 2, OH / 2], "screen": [SCREEN[0] / 2, SCREEN[1] / 2, SCREEN[2] / 2, SCREEN[3] / 2],
           "glass": [g / 2 for g in GLASS], "led": [LED[0] / 2, LED[1] / 2], "ledS": LS / 2, "glow": [g / 2 for g in GLR],

@@ -162,14 +162,16 @@ def led_sprites(R_units, AS, pad=1.25, colour='blue'):
     R_, G_ = rgb[..., 0], rgb[..., 1]
     if colour == 'red':                                                    # couleur d'origine de la photo (LED rouge)
         blue = rgb.copy()
+    elif colour == 'yellow':                                               # rouge -> jaune ambre, coeur presque blanc
+        blue = np.dstack([np.clip(1.05 * R_ + 0.1 * G_, 0, 255), np.clip(0.80 * R_ + 0.25 * G_, 0, 255), 0.55 * G_])
     else:
         blue = np.dstack([G_, 0.60 * G_ + 0.35 * R_, R_])                  # rouge -> bleu, coeur presque blanc
     # eteinte : facettes (detail fin) sur un fond bleu nuit, reflet de la lumiere en haut a gauche
     lum = rgb.mean(2)
     detail = lum - cv2.GaussianBlur(lum, (0, 0), 6)
     hl = np.exp(-(((xx - LED_C[0] + 0.38 * LED_RPX) / (0.22 * LED_RPX)) ** 2 + ((yy - LED_C[1] + 0.42 * LED_RPX) / (0.16 * LED_RPX)) ** 2))
-    dark = (34.0, 9.0, 9.0) if colour == 'red' else (10.0, 16.0, 30.0)
-    dtint = np.array([1.2, 0.7, 0.6]) if colour == 'red' else np.array([0.6, 0.8, 1.2])
+    dark = {'red': (34.0, 9.0, 9.0), 'yellow': (34.0, 26.0, 6.0)}.get(colour, (10.0, 16.0, 30.0))
+    dtint = {'red': np.array([1.2, 0.7, 0.6]), 'yellow': np.array([1.15, 0.95, 0.4])}.get(colour, np.array([0.6, 0.8, 1.2]))
     off = np.dstack([np.full_like(lum, dark[0]), np.full_like(lum, dark[1]), np.full_like(lum, dark[2])]) \
           + (detail * 0.30)[..., None] * dtint + (hl * 70)[..., None] * np.array([0.95, 0.9, 0.88])
     off = off * (0.85 + 0.15 * (1 - r))[..., None]

@@ -25,7 +25,7 @@ gx, gy, gw, gh = [u(v) for v in LY['glass']]
 cx = u(LY['title'][0])
 s = []
 # ---- serigraphie
-for key, txt, rot in (('ioOut', 'OUTPUT', -90), ('ioIn', 'INPUT', 90)):
+for key, txt, rot in ():   # plus de textes INPUT / OUTPUT
     x, y = u(LY[key][0]), u(LY[key][1])
     s.append(f'<text x="{x}" y="{y}" transform="rotate({rot} {x} {y})" font-family="PopM" font-size="27" letter-spacing="6" fill="#dfe2e5" text-anchor="middle" dominant-baseline="central">{txt}</text>')
 logo = open(os.path.join(ROOT, 'assets', 'NineHandsLogo.svg')).read()
