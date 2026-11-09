@@ -51,7 +51,7 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
   ne tombe sur aucun partiel d'une autre corde ; si toutes ses harmoniques sont partagées (cordes à l'octave dans les open tunings),
   la mesure reste juste quand les cordes sont accordées mais moins précise quand elles sont loin : finir en MONO.
 
-Notice d'utilisation (en français) : `docs/Chroma_Notice_v2.0.0.pdf`.
+Notice d'utilisation (en français) : `docs/Chroma_Notice_FR_v2.0.0.pdf`.
 
 Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
 

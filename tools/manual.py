@@ -1,16 +1,16 @@
-# CHROMA (NINE HANDS | DSP) - notice PDF bilingue (partie anglaise complete, puis partie francaise complete).
-# Usage : python3 tools/manual.py [fichier PDF de sortie]   (defaut : docs/CHROMA_Manual_EN-FR_v<VERSION>.pdf)
-# Illustrations : tools/manual_assets/ (captures du rendu reel du plugin reprises de la notice 1.3.0 ; aucune ne montre
-# le menu clic droit, elles restent justes). Les accordages d'usine sont lus directement dans Tunings.h.
+# Chroma (NINE HANDS | DSP) - notice PDF en francais uniquement, couverture noire « minimale » commune a toutes les notices.
+# Usage : python3 tools/manual.py [fichier PDF de sortie]   (defaut : docs/Chroma_Notice_FR_v<VERSION>.pdf)
+# Illustrations : tools/manual_assets/ (captures du rendu reel du plugin v2, outil de rendu Linux de l'editeur).
+# Les accordages d'usine sont lus directement dans Tunings.h.
 # Polices : assets/fonts (Poppins, DejaVu Sans pour les symboles ★ ✎ ◄ ►).
 # Pas d'historique des versions dans la notice (demande de l'utilisateur).
-NAME = "CHROMA"
+NAME = "Chroma"
 import re as _re, os as _os
 VERSION = _re.search(r"project\(\w+ VERSION ([0-9.]+)", open(_os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "CMakeLists.txt")).read()).group(1)   # version du plugin
 TITLE = "CHROMA"
-FOOTER = {"en": "CHROMA " + VERSION + " · NINE HANDS | DSP", "fr": "CHROMA " + VERSION + " · NINE HANDS | DSP"}
+FOOTER = {"fr": "Chroma (NINE HANDS | DSP) · v" + VERSION}
 from reportlab.lib import colors
-ACC = colors.HexColor("#E2733B")       # orange de la pedale
+ACC = colors.HexColor("#E0662A")       # orange de l'ecran (boutons de mode)
 H1COL = colors.HexColor("#1B1D22"); H2COL = ACC
 HCELLBG = colors.HexColor("#1B1D22"); HCELLTXT = colors.white
 # ---------- mise en page commune (style maison NINE HANDS | DSP) ----------
@@ -30,10 +30,10 @@ from reportlab.lib.fonts import addMapping
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(ROOT, "tools", "manual_assets")
 FONTS = os.path.join(ROOT, "assets", "fonts")
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "docs", NAME + "_Manual_EN-FR_v" + VERSION + ".pdf")
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "docs", NAME + "_Notice_FR_v" + VERSION + ".pdf")
 
 for n, f in (("Pop", "Poppins-Regular"), ("PopL", "Poppins-Light"), ("PopM", "Poppins-Medium"), ("PopB", "Poppins-Bold"),
-             ("Dej", "DejaVuSans")):
+             ("PopR", "Poppins-Regular"), ("Barlow", "BarlowCondensed-ExtraBold"), ("Dej", "DejaVuSans")):
     pdfmetrics.registerFont(TTFont(n, os.path.join(FONTS, f + ".ttf")))
 addMapping("PopL", 0, 0, "PopL"); addMapping("PopL", 1, 0, "PopM"); addMapping("PopL", 0, 1, "PopL"); addMapping("PopL", 1, 1, "PopM")
 addMapping("Pop", 0, 0, "Pop"); addMapping("Pop", 1, 0, "PopB"); addMapping("Pop", 0, 1, "Pop"); addMapping("Pop", 1, 1, "PopB")
@@ -85,15 +85,56 @@ def side(left, right, wl):
     return t
 
 W = A4[0] - 36 * mm
-def cover(t, cover_img, cover_w):
-    return [Spacer(1, 2 * mm), P(t["lang"], "coverlang"), Spacer(1, 6 * mm), img(cover_img, cover_w), Spacer(1, 4 * mm),
-            P(" ".join(TITLE), "cover"), Spacer(1, 2 * mm), P(t["sub"], "coversub"), Spacer(1, 1 * mm), P(t["ver"], "coverver"),
-            Spacer(1, 7 * mm), img("logo_white.png", 46 * mm), NextPageTemplate("p"), PageBreak()]
+COVER_SUB = "Accordeur polyphonique"          # mention courte : type d'effet seulement
+PEDAL_H, PEDAL_TOP, NAME_TOP, SUB_TOP, LOGO_W, LOGO_BOTTOM, LANG_TOP, BAND_H = 82, 84, 194, 208, 38, 22, 18, 3   # mm
+
+def cover_pedal_image():
+    """Pedale detouree (canal alpha de background.png) sur sol noir : leger reflet + halo tres doux de la couleur d'accent."""
+    import numpy as np
+    ped = Image.open(os.path.join(ASSETS, "cover_pedal.png")).convert("RGBA")
+    w, h = ped.size; mx, my, refl = int(w * 0.45), int(h * 0.12), int(h * 0.28)
+    W2, H2 = w + 2 * mx, h + my + refl + int(h * 0.05)
+    yy, xx = np.mgrid[0:H2, 0:W2].astype(np.float32)
+    cx, cy = W2 / 2, my + h * 0.55
+    d = np.hypot((xx - cx) / (W2 * 0.5), (yy - cy) / (H2 * 0.5))
+    halo = np.clip(1 - d, 0, 1) ** 2.2 * 0.16
+    acc = np.array([0xE0, 0x66, 0x2A], np.float32)
+    base = np.zeros((H2, W2, 3), np.float32) + halo[..., None] * acc
+    canvas = Image.fromarray(base.clip(0, 255).astype(np.uint8), "RGB").convert("RGBA")
+    r = ped.transpose(Image.FLIP_TOP_BOTTOM).crop((0, 0, w, refl))
+    ra = np.array(r).astype(np.float32); fade = np.linspace(0.22, 0, refl)[:, None]
+    ra[..., 3] *= fade; canvas.alpha_composite(Image.fromarray(ra.astype(np.uint8), "RGBA"), (mx, my + h + 2))
+    canvas.alpha_composite(ped, (mx, my))
+    p = "/tmp/claude-0/chroma_cover_pedal.jpg"; canvas.convert("RGB").save(p, quality=93)
+    return p, (W2, H2), (mx, my, w, h)
+
+def cover(t, cover_img=None, cover_w=None):
+    return [Spacer(1, 1), NextPageTemplate("p"), PageBreak()]
+
+def draw_cover(c):
+    PW, PH = A4
+    c.setFillColor(colors.black); c.rect(0, 0, PW, PH, stroke=0, fill=1)
+    c.setFillColor(ACC); c.rect(0, 0, PW, BAND_H * mm, stroke=0, fill=1)
+    def centred(txt, font, size, top_mm, col, track):
+        cap = pdfmetrics.getFont(font).face.ascent / 1000.0 * size * 0.70 / 0.93 if False else size * 0.70
+        w = pdfmetrics.stringWidth(txt, font, size) + track * (len(txt) - 1)
+        to = c.beginText(); to.setFont(font, size); to.setFillColor(col); to.setCharSpace(track)
+        to.setTextOrigin((PW - w) / 2, PH - top_mm * mm - cap); to.textOut(txt); c.drawText(to)
+    centred("FRANÇAIS", "PopM", 8.5, LANG_TOP, colors.HexColor("#F2A27E"), 1.0)
+    path, (W2, H2), (mx, my, w, h) = cover_pedal_image()
+    k = PEDAL_H * mm / h
+    x0 = (PW - W2 * k) / 2; ytop = PH - PEDAL_TOP * mm + my * k
+    c.drawImage(path, x0, ytop - H2 * k, W2 * k, H2 * k)
+    centred(NAME.upper(), "Barlow", 30, NAME_TOP, colors.white, 15)
+    centred(COVER_SUB, "PopR", 10, SUB_TOP, colors.HexColor("#BDC4B8"), 1.5)
+    lg = os.path.join(ASSETS, "logo_white.png"); im = Image.open(lg)
+    lw = LOGO_W * mm; lh = lw * im.height / im.width
+    c.drawImage(lg, (PW - lw) / 2, LOGO_BOTTOM * mm, lw, lh, mask="auto")
 
 def build(sections, title):
     doc = BaseDocTemplate(OUT, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=17 * mm, bottomMargin=18 * mm,
                           title=title, author="NINE HANDS | DSP")
-    lang = {"v": "en"}
+    lang = {"v": "fr"}
     def deco(c, d):
         c.saveState()
         c.setFillColor(ACC); c.rect(0, A4[1] - 2.2 * mm, A4[0], 2.2 * mm, stroke=0, fill=1)
@@ -102,8 +143,7 @@ def build(sections, title):
         c.drawRightString(A4[0] - 18 * mm, 10 * mm, str(d.page))
         c.restoreState()
     def cover_bg(c, d):
-        c.saveState(); c.setFillColor(colors.black); c.rect(0, 0, A4[0], A4[1], stroke=0, fill=1)
-        c.setFillColor(ACC); c.rect(0, A4[1] - 2.2 * mm, A4[0], 2.2 * mm, stroke=0, fill=1); c.restoreState()
+        c.saveState(); draw_cover(c); c.restoreState()
     class SetLang(Spacer):
         def __init__(self, l): Spacer.__init__(self, 0, 0); self.l = l
         def draw(self): lang["v"] = self.l
@@ -131,9 +171,9 @@ TUNINGS, EN_NAMES, EN_CATS = factory_tunings()
 assert len(TUNINGS) == 82, len(TUNINGS)
 
 def tuning_block(cat, lang):
-    rows = [[(EN_CATS.get(cat, cat) if lang == "en" else cat), ""]]
+    rows = [[cat, ""]]
     for c, n, notes in TUNINGS:
-        if c == cat: rows.append([EN_NAMES.get(n, n) if lang == "en" else n, notes])
+        if c == cat: rows.append([n, notes])
     t = table(rows, [27 * mm, W / 2 - 30 * mm])
     t.setStyle(TableStyle([("SPAN", (0, 0), (1, 0))]))
     return t
@@ -149,120 +189,11 @@ for c, _, _ in TUNINGS:
 G6, OPEN, G7, G8, B4, B5, B6 = CATS
 
 T = {
-"en": dict(
- lang="ENGLISH", sub="Polyphonic tuner for guitar &amp; bass &nbsp;·&nbsp; Mono · Poly · Strobe &nbsp;·&nbsp; VST3",
- ver="User manual &nbsp;·&nbsp; version " + VERSION,
- intro_t="1. Introduction",
- intro="<b>CHROMA</b> is a VST3 tuner designed by NINE HANDS | DSP for guitar and bass, with the look of a real stompbox. Strum all your strings at once and see which ones are off (<b>POLY</b>), fine-tune one string with a large display (<b>MONO</b>) or with stroboscopic accuracy (<b>STROBE</b>). Its pedal format and polyphonic mode are inspired by the <b>TC Electronic PolyTune</b>. It was built from the ground up for very low tunings: G#0, F0, E0 and even D0 (about 18 Hz) are measured reliably. CHROMA was previously called Tuna.",
- does_t="What it does",
- does=["<b>Three modes</b>: MONO (large note + ±50 cent bar), POLY (all strings at once), STROBE (moving bands, ±0.1 cent).",
-       "<b>Very low range</b>: about 16 Hz to 1.6 kHz; octave errors on weak fundamentals are detected and corrected.",
-       "<b>82 factory tunings</b>: standard, drop and low metal tunings, open tunings, 7 and 8-string guitars, 4, 5 and 6-string basses.",
-       "<b>Favourites and custom tunings</b> (up to 10 strings), shared by every instance.",
-       "<b>Silent tuning</b>: TUNE / MUTE footswitch with a smooth mute. The tuner keeps working, muted or not.",
-       "<b>MIDI Learn</b> on every control (right-click; no CC is assigned by default), Program Change = favourites."],
- does_note="The sound goes straight through (no latency, no colouring). A copy of the input is analysed in a separate thread, so tuning never costs anything on the audio thread.",
- inst_t="2. Installation",
- inst=["<b>Windows</b>: copy <b>Chroma.vst3</b> into <b>C:\\Program Files\\Common Files\\VST3\\</b>.",
-       "<b>macOS</b> (universal, Apple Silicon and Intel): copy <b>Chroma.vst3</b> into <b>~/Library/Audio/Plug-Ins/VST3/</b>, then run once in Terminal: <i>xattr -cr ~/Library/Audio/Plug-Ins/VST3/Chroma.vst3</i>.",
-       "<b>Reaper</b>: Options &gt; Preferences &gt; Plug-ins &gt; VST &gt; <i>Re-scan</i>. The plug-in appears as <b>Chroma (NINE HANDS | DSP)</b>.",
-       "If you had installed <b>Tuna.vst3</b> (or CHROMA.vst3 from version 1.1.0), delete it: CHROMA keeps the same internal ID so Reaper finds it in your existing projects, and your Tuna custom tunings and favourites are imported automatically."],
- ui_t="3. The interface",
- ui_cap="Every control drawn on the pedal is live. Numbers refer to the table below and to section 4.",
- ui_rows=[["No.", "Element", "Function"],
-   ["1", "Mode name", "MONO, POLY or STROBE. Click: next mode."],
-   ["2", "Tuning menu", "Selected tuning and its type (G6 = 6-string guitar, B5 = 5-string bass, P = custom). Click: opens the menu. Turns green when every string is in tune."],
-   ["3", "Reference", "Pitch of A4 (430 to 450 Hz)."],
-   ["4", "Display", "String rows (POLY), large note (MONO) or bands (STROBE). MIDI Learn and other messages appear here as a banner."],
-   ["5", "Scale", "-50 / 0 / +50 cents."],
-   ["6", "Mode LEDs", "Amber LED above the active mode."],
-   ["7", "MODE", "3-position selector."],
-   ["8", "TUNING", "Endless encoder: next / previous tuning; click opens the menu."],
-   ["9", "◄ ►", "Previous / next tuning."],
-   ["10", "REF", "Reference A4."],
-   ["11", "MUTE LED", "Red = output muted."],
-   ["12", "TUNE / MUTE", "Footswitch: mutes the output."],
-   ["13 / 14", "INPUT / OUTPUT", "Input on the left, output on the right."]],
- ctl_t="4. Controls",
- ctl=[("MODE (7)", "3-position selector: MONO, POLY, STROBE. Drag, scroll or click (click = next mode). Clicking the mode name on the screen (1) does the same. CHROMA opens in <b>MONO</b>; saved projects keep their mode."),
-      ("TUNING (8) and ◄ ► (9)", "Endless encoder: one notch (drag or scroll) = next / previous tuning, exactly like the arrows. A click on the knob, or on the tuning name (2), opens the tuning menu. The new tuning name is shown briefly on the screen."),
-      ("REF (10)", "Pitch of A4 from 430 to 450 Hz in 1 Hz steps (drag or scroll); <b>double-click = 440 Hz</b>. All tunings follow it; the value is shown at the top right of the screen (3).")],
- menu_t="The tuning menu",
- menu="The menu opens over the screen in English; the small <b>FR</b> button in its header switches the screen menus to French (<b>EN</b> to go back), and the choice is remembered for every instance. It has three tabs:",
- menu_b=["<b>ALL</b>: every factory tuning, grouped by instrument, then your custom tunings.",
-         "<b>★ FAVORITES</b>: the tunings you starred (click the star at the end of a line). Program Change selects them.",
-         "<b>✎ CUSTOM</b>: your own tunings. <i>+ New tuning</i> copies the current one; the pencil edits a tuning."],
- menu_cap="ALL, FAVORITES and CUSTOM tabs.",
- cust_t="Custom tunings",
- cust=["In the editor, set the name, the number of strings (1 to 10), then each string with − / + (semitone) and « / » (octave). Frequencies follow the current reference. <b>Save</b>, <b>Delete</b> or <b>Cancel</b>.",
-       "Custom tunings and favourites are stored in a file shared by all instances (right-click &gt; <i>Show tunings file</i>): <i>%APPDATA%\\NINE HANDS | DSP\\Chroma\\library.xml</i> on Windows, <i>~/Library/NINE HANDS | DSP/Chroma/library.xml</i> on macOS. The selected tuning is also saved inside your project."],
- fs_t="5. Footswitch, LEDs and modes",
- fs_h="TUNE / MUTE footswitch",
- fs="A click on the footswitch mutes the output with a short, click-free fade; the red <b>MUTE</b> LED lights up. Click again to hear your guitar. The tuner keeps working, muted or not. The amber LED above MONO, POLY or STROBE shows the active mode.",
- poly_h="POLY - all strings at once",
- poly="Choose your tuning, strum all open strings firmly and let them ring. One row per string (highest at the top); the lit segment shows the deviation: left = flat, right = sharp, one segment = 4 cents. A string turns <b>green</b> within ±2 cents; when all strings are green, the tuning name turns green too.",
- poly_b=["Readings settle in about 0.3 s on guitar and 0.6 to 1 s on the lowest bass strings (one cycle of F0 lasts 46 ms).",
-         "A string you did not play stays dim. After you stop playing, the last value stays on screen and slowly fades.",
-         "If you play a single note that is not part of the tuning, the screen switches to the mono view by itself (header POLY&gt;MONO)."],
- mono_h="MONO - one string, large display",
- mono="Play one note: the screen shows its name and octave, the deviation in cents (to 0.1 cent), the frequency and, if the note belongs to the tuning, the string number (string 1 = highest). The value is marked ~ during the first moments (coarse estimate), then switches to the precise phase measurement. The thin white mark is the target; the smaller yellow cursor is the note you play and slides left when flat, right when sharp. Within ±1 cent the mark turns green.",
- strobe_h="STROBE - stroboscopic accuracy",
- strobe="The bands scroll at a speed proportional to the deviation, like a mechanical strobe tuner: scrolling right = sharp, left = flat. Tune until the bands stand still; they turn green within ±1 cent. Ideal for intonation and very precise tuning.",
- midi_t="6. MIDI",
- midi="Every control of the pedal can be driven from a MIDI footswitch or controller (for example an M-Vave Chocolate Plus). <b>No CC is assigned by default</b>: you choose the CC of each control with <b>MIDI Learn</b>.",
- learn_h="MIDI Learn",
- learn=["<b>Right-click a control</b> (MODE, TUNING, ◄ or ►, REF or the TUNE / MUTE footswitch) and choose <b>MIDI Learn: &lt;control&gt; (CC n / none)</b>. The TUNING knob offers its two directions: <i>Next tuning</i> and <i>Previous tuning</i>.",
-        "The screen shows <b>MIDI LEARN: move a control for X</b>. Move a pedal or press a button on your controller: the first CC received is assigned (it does not act on the tuner) and the screen confirms <b>X = CC n</b> for 2 seconds.",
-        "<b>Clear MIDI: &lt;control&gt;</b> removes the assignment; <b>Cancel MIDI learn</b> (or choosing the same Learn item again) stops waiting.",
-        "A CC already used by another control is taken away from it, so one CC always drives one control.",
-        "Right-click anywhere else &gt; <b>MIDI</b>: <i>Learn</i> for every control with its current CC (or <i>none</i>), <b>Clear all MIDI assignments</b>, the MIDI <b>Channel</b> (Omni or 1 to 16) and the footswitch type (latching or momentary pedal).",
-        "Assignments are <b>saved with the project</b>. A project saved with an earlier version that still used the old factory CC numbers opens with no assignment; a project in which you had changed an assignment keeps its assignments."],
- midi_rows=[["Control", "Type"],
-   ["TUNE / MUTE footswitch", "Footswitch. Latching (default): value ≥ 64 = mute, &lt; 64 = sound. Momentary: each press (≥ 64) toggles."],
-   ["MODE", "3-position selector: 0-42 MONO, 43-85 POLY, 86-127 STROBE."],
-   ["TUNING / ► - next tuning", "Trigger: each value ≥ 64 = next tuning."],
-   ["TUNING / ◄ - previous tuning", "Trigger: each value ≥ 64 = previous tuning."],
-   ["REF", "Continuous: 0-127 = 430-450 Hz."],
-   ["Program Change", "Program n selects favourite n (program 0 = first favourite), or tuning n if there are no favourites. No learning needed."]],
- midi_note="Mute, Mode and Reference A4 are also host parameters: they can be automated or mapped from the DAW (Reaper: Param &gt; Learn).",
- win_t="7. Window",
- win=["Right-click anywhere (outside a control, or on the screen) &gt; <b>Plugin size</b>: <b>60 %</b>, <b>75 %</b>, <b>100 %</b> (the current size is ticked); <i>(default)</i> is shown next to the default size. You can also drag the bottom-right corner (aspect ratio kept). The window can never be made smaller than 60 %.",
-      "<b>Plugin size &gt; Default size (new windows)</b> chooses the size at which every new CHROMA window opens (60 % at first). This setting is common to all instances and saved on your computer (<i>settings.xml</i> in the NINE HANDS | DSP\\Chroma folder, next to the tunings file); the open window takes that size at once.",
-      "Once you change the size of a window (menu or corner), that instance remembers its own size in the project, and this size takes priority over the default size when the project is reopened. An instance whose size was never changed opens at the default size.",
-      "The same right-click menu holds <b>MIDI</b> (section 6), <b>Custom tunings...</b> (opens the CUSTOM tab) and <b>Show tunings file</b>. CHROMA has no separate status line: messages (new tuning, A4 = 440 Hz, MIDI Learn prompts and confirmations) appear as a banner on the screen."],
- pre_t="8. Factory tunings (presets)",
- pre="CHROMA's presets are its 82 factory tunings. Strings are listed from the lowest to the highest. Names are shown in English or French depending on the EN / FR button of the menu.",
- bass_t="Factory tunings: basses",
- tips_t="9. Tips",
- tips=["Place CHROMA <b>first</b> in the Reaper chain, before drives and before the amp sim (Ampire, Impulse...), for the cleanest signal.",
-       "Low 7-string tunings (drop G, G standard...): pluck firmly with the pick or thumb, near the neck pickup if possible: the fundamental is stronger.",
-       "Let the string ring for one second: the first 50 ms (attack) are ignored and the reading gets more precise as the string rings.",
-       "In POLY, mute the strings you are not tuning if they ring sympathetically.",
-       "Open tunings with octave strings (Open D, DADGAD...): the higher octave string shares all its harmonics with the lower one; POLY shows the direction correctly, finish in MONO for the last cent.",
-       "Learn the footswitch on a latching MIDI switch and use it as a silent-tuning pedal between songs."],
- tr_t="Troubleshooting",
- tr=[["Symptom", "Solution"],
-     ["Nothing on screen", "Check the input level (the tuner reacts from about -66 dBFS) and that the track is armed / monitored."],
-     ["Wrong octave", "Play the string a bit harder or closer to the neck; the octave test needs a few cycles of the fundamental."],
-     ["A POLY row stays dim", "That string was not detected: strum again, or check that the selected tuning matches your instrument."],
-     ["MIDI does nothing", "No CC is assigned by default: learn one (right-click the control &gt; MIDI Learn). Then check the MIDI channel (right-click &gt; MIDI &gt; Channel) and that the track receives MIDI from your controller."],
-     ["Plug-in not listed", "Re-scan the plug-ins in the DAW; on macOS run the xattr command (section 2)."]],
- spec_t="10. Specifications",
- spec=[["Item", "Value"], ["Format", "VST3 - Windows 64-bit, macOS universal (Apple Silicon + Intel)"], ["Inspired by", "TC Electronic PolyTune"],
-       ["Modes", "MONO, POLY, STROBE"], ["Range", "about 16 Hz (C0) to 1.6 kHz"],
-       ["MONO / STROBE accuracy", "±0.1 cent on a sustained note (tested from D0 to E6)"],
-       ["POLY accuracy", "±0.1-0.5 cent on strings with an isolated partial; ±1-3 cents on strings sharing all their harmonics (octaves)"],
-       ["Settling time", "guitar about 0.3 s; low bass (F0, E0) about 0.8-1.2 s"], ["Reference", "A4 = 430 ... 450 Hz (440 Hz)"],
-       ["Tunings", "82 factory tunings, favourites, custom tunings up to 10 strings"],
-       ["Latency / sound", "none - the sound passes through untouched; smooth mute"], ["CPU", "about 4 % of one core (separate analysis thread)"],
-       ["MIDI", "MIDI Learn on every control (no CC assigned by default), channel Omni / 1-16, latching or momentary footswitch, Program Change = favourites; saved with the project"],
-       ["Window", "Plugin size 60 % / 75 % / 100 %, default size of new windows to choose (60 % at first), never smaller than 60 %; corner resize"],
-       ["Windows stability", "anti-freeze v2: the audio thread never calls the host, window refresh driven by a timer with a watchdog"]]),
 "fr": dict(
  lang="FRANÇAIS", sub="Accordeur polyphonique guitare &amp; basse &nbsp;·&nbsp; Mono · Poly · Strobe &nbsp;·&nbsp; VST3",
  ver="Notice d'utilisation &nbsp;·&nbsp; version " + VERSION,
  intro_t="1. Présentation",
- intro="<b>CHROMA</b> est un accordeur VST3 conçu par NINE HANDS | DSP pour guitare et basse, avec l'allure d'une vraie pédale. Grattez toutes les cordes d'un coup et voyez celles qui sont fausses (<b>POLY</b>), affinez une corde sur un grand affichage (<b>MONO</b>) ou avec la précision d'un stroboscope (<b>STROBE</b>). Son format pédale et son mode polyphonique s'inspirent du <b>TC Electronic PolyTune</b>. Il a été pensé dès le départ pour les accordages très graves : Sol#0, Fa0, Mi0 et même Ré0 (environ 18 Hz) sont mesurés de façon fiable. CHROMA s'appelait auparavant Tuna.",
+ intro="<b>CHROMA</b> est un accordeur VST3 conçu par NINE HANDS | DSP pour guitare et basse, avec l'allure d'une vraie pédale : boîtier noir en peinture froissée, grand écran tactile, LED jaune et footswitch. Grattez toutes les cordes d'un coup et voyez celles qui sont fausses (<b>POLY</b>), affinez une corde sur un grand affichage (<b>MONO</b>) ou avec la précision d'un stroboscope (<b>STROBE</b>). Son format pédale et son mode polyphonique s'inspirent du <b>TC Electronic PolyTune</b>. Il a été pensé dès le départ pour les accordages très graves : Sol#0, Fa0, Mi0 et même Ré0 (environ 18 Hz) sont mesurés de façon fiable. CHROMA s'appelait auparavant Tuna.",
  does_t="Ce qu'il fait",
  does=["<b>Trois modes</b> : MONO (grande note + barre ±50 cents), POLY (toutes les cordes d'un coup), STROBE (bandes mobiles, ±0,1 cent).",
        "<b>Très grave</b> : d'environ 16 Hz à 1,6 kHz ; les erreurs d'octave sur les fondamentales faibles sont détectées et corrigées.",
@@ -277,25 +208,22 @@ T = {
        "<b>Reaper</b> : Options &gt; Préférences &gt; Plug-ins &gt; VST &gt; <i>Re-scan</i>. Le plugin apparaît sous le nom <b>Chroma (NINE HANDS | DSP)</b>.",
        "Si vous aviez installé <b>Tuna.vst3</b> (ou CHROMA.vst3 de la version 1.1.0), supprimez-le : CHROMA garde le même identifiant interne pour que Reaper le retrouve dans vos projets, et vos accordages perso et favoris de Tuna sont repris automatiquement."],
  ui_t="3. L'interface",
- ui_cap="Chaque commande dessinée sur la pédale est active. Les numéros renvoient au tableau ci-dessous et à la section 4.",
+ ui_cap="Tout se règle directement sur l'écran tactile : il n'y a plus de potards. Les numéros renvoient au tableau ci-dessous et à la section 4.",
  ui_rows=[["N°", "Élément", "Fonction"],
-   ["1", "Nom du mode", "MONO, POLY ou STROBE. Clic : mode suivant."],
-   ["2", "Menu des accordages", "Accordage choisi et son type (G6 = guitare 6 cordes, B5 = basse 5 cordes, P = perso). Clic : ouvre le menu. Passe au vert quand toutes les cordes sont justes."],
-   ["3", "Référence", "Hauteur du La4 (430 à 450 Hz)."],
-   ["4", "Affichage", "Lignes des cordes (POLY), grande note (MONO) ou bandes (STROBE). Les messages (MIDI Learn, etc.) s'y affichent en bandeau."],
-   ["5", "Échelle", "-50 / 0 / +50 cents."],
-   ["6", "LED des modes", "LED ambre au-dessus du mode actif."],
-   ["7", "MODE", "Sélecteur 3 positions."],
-   ["8", "TUNING", "Encodeur sans fin : accordage suivant / précédent ; clic = menu."],
-   ["9", "◄ ►", "Accordage précédent / suivant."],
-   ["10", "REF", "Référence La4."],
-   ["11", "LED MUTE", "Rouge = sortie coupée."],
-   ["12", "TUNE / MUTE", "Footswitch : coupe la sortie."],
-   ["13 / 14", "INPUT / OUTPUT", "Entrée à gauche, sortie à droite."]],
+   ["1", "MONO · POLY · STROBE", "Boutons de mode : le mode actif est allumé en orange. Clic = choisit le mode."],
+   ["2", "◄ A=440 ►", "Référence du La4 (430 à 450 Hz) : flèches, molette ; double-clic sur la valeur = 440 Hz."],
+   ["3", "◄", "Accordage précédent."],
+   ["4", "Barre d'accordage", "Accordage choisi, son type (G6 = guitare 6 cordes, B5 = basse 5 cordes, P = perso) et sa position dans la liste. Clic au centre : ouvre le menu des accordages. Passe au vert quand toutes les cordes sont justes."],
+   ["5", "►", "Accordage suivant."],
+   ["6", "Affichage", "Lignes des cordes (POLY), grande note (MONO) ou bandes (STROBE). Les messages (nouvel accordage, MIDI Learn...) s'y affichent en bandeau."],
+   ["7", "Échelle", "-50 / 0 / +50 cents."],
+   ["8", "LED", "Jaune = sortie coupée (MUTE)."],
+   ["9", "TUNE / MUTE", "Footswitch : coupe la sortie."],
+   ["10 / 11", "OUT / IN", "Sortie à gauche, entrée à droite (vues sur les tranches de la pédale)."]],
  ctl_t="4. Les commandes",
- ctl=[("MODE (7)", "Sélecteur 3 positions : MONO, POLY, STROBE. Glisser, molette ou clic (clic = mode suivant). Cliquer sur le nom du mode à l'écran (1) fait de même. CHROMA s'ouvre en <b>MONO</b> ; les projets enregistrés gardent leur mode."),
-      ("TUNING (8) et ◄ ► (9)", "Encodeur sans fin : un cran (glisser ou molette) = accordage suivant / précédent, comme les flèches. Un clic sur le potard, ou sur le nom de l'accordage (2), ouvre le menu des accordages. Le nom du nouvel accordage s'affiche brièvement."),
-      ("REF (10)", "Hauteur du La4 de 430 à 450 Hz par pas de 1 Hz (glisser ou molette) ; <b>double-clic = 440 Hz</b>. Tous les accordages la suivent ; la valeur est affichée en haut à droite de l'écran (3).")],
+ ctl=[("Boutons de mode (1)", "Trois boutons en haut de l'écran : <b>MONO</b>, <b>POLY</b>, <b>STROBE</b>. Un clic choisit le mode, la molette au-dessus des boutons passe au mode voisin. CHROMA s'ouvre en <b>MONO</b> ; les projets enregistrés gardent leur mode."),
+      ("Référence ◄ A=440 ► (2)", "Hauteur du La4 de 430 à 450 Hz par pas de 1 Hz : clic sur ◄ ou ►, ou molette sur la case. <b>Double-clic sur la valeur = 440 Hz</b>. Tous les accordages la suivent."),
+      ("Barre d'accordage (3, 4, 5)", "◄ et ► (ou la molette sur la barre) passent à l'accordage précédent / suivant ; le nom du nouvel accordage s'affiche brièvement. Un clic au centre de la barre ouvre le menu des accordages. À gauche, le type d'instrument (G6, G7, B5, P...) ; à droite, la position dans la liste (par exemple 8/82). Le logo CHROMA, en haut à droite, n'est pas une commande.")],
  menu_t="Le menu des accordages",
  menu="Le menu s'ouvre sur l'écran en anglais ; le petit bouton <b>FR</b> de son en-tête passe les menus de l'écran en français (<b>EN</b> pour revenir), choix mémorisé pour toutes les instances. Il a trois onglets :",
  menu_b=["<b>ALL</b> : tous les accordages d'usine, groupés par instrument, puis vos accordages perso.",
@@ -304,15 +232,15 @@ T = {
  menu_cap="Onglets ALL, FAVORITES et CUSTOM.",
  cust_t="Accordages perso",
  cust=["Dans l'éditeur, réglez le nom, le nombre de cordes (1 à 10), puis chaque corde avec − / + (demi-ton) et « / » (octave). Les fréquences suivent la référence courante. <b>Save</b>, <b>Delete</b> ou <b>Cancel</b>.",
-       "Accordages perso et favoris sont stockés dans un fichier commun à toutes les instances (clic droit &gt; <i>Show tunings file</i>) : <i>%APPDATA%\\NINE HANDS | DSP\\Chroma\\library.xml</i> sous Windows, <i>~/Library/NINE HANDS | DSP/Chroma/library.xml</i> sous macOS. L'accordage choisi est aussi enregistré dans le projet."],
+       "Accordages perso et favoris sont stockés dans un fichier commun à toutes les instances (clic droit &gt; <i>Show tunings file</i>) : <i>%APPDATA%\\NINE HANDS | DSP\\Chroma\\library.xml</i> sous Windows, <i>~/Library/Application Support/NINE HANDS | DSP/Chroma/library.xml</i> sous macOS. L'accordage choisi est aussi enregistré dans le projet."],
  fs_t="5. Footswitch, LED et modes",
  fs_h="Footswitch TUNE / MUTE",
- fs="Un clic sur le footswitch coupe la sortie avec un fondu court, sans clic ; la LED rouge <b>MUTE</b> s'allume. Recliquez pour réentendre la guitare. L'accordeur fonctionne toujours, coupé ou non. La LED ambre au-dessus de MONO, POLY ou STROBE indique le mode actif.",
+ fs="Un clic sur le footswitch coupe la sortie avec un fondu court, sans clic ; la <b>LED jaune</b> s'allume (en fondu). Recliquez pour réentendre la guitare. L'accordeur fonctionne toujours, coupé ou non. Le mode actif se lit sur les boutons en haut de l'écran.",
  poly_h="POLY - toutes les cordes d'un coup",
- poly="Choisissez l'accordage, grattez franchement toutes les cordes à vide et laissez-les sonner. Une ligne par corde (la plus aiguë en haut) ; le segment allumé montre l'écart : à gauche = trop bas, à droite = trop haut, un segment = 4 cents. Une corde passe au <b>vert</b> à ±2 cents ; quand toutes sont vertes, le nom de l'accordage passe au vert aussi.",
+ poly="Choisissez l'accordage, grattez franchement toutes les cordes à vide et laissez-les sonner. Une ligne par corde (la plus aiguë en haut) ; le segment allumé montre l'écart : à gauche = trop bas, à droite = trop haut, un segment = 4 cents. Une corde passe au <b>vert</b> à ±2 cents ; quand toutes sont vertes, la barre d'accordage passe au vert aussi.",
  poly_b=["La mesure se stabilise en 0,3 s environ à la guitare et 0,6 à 1 s sur les cordes de basse les plus graves (un cycle de Fa0 dure 46 ms).",
          "Une corde non jouée reste sombre. Quand vous arrêtez de jouer, la dernière valeur reste affichée puis s'estompe lentement.",
-         "Si vous jouez une seule note qui n'appartient pas à l'accordage, l'écran passe tout seul en vue mono (en-tête POLY&gt;MONO)."],
+         "Si vous jouez une seule note qui n'appartient pas à l'accordage, l'écran passe tout seul en vue mono (le bouton POLY reste allumé)."],
  mono_h="MONO - une corde, grand affichage",
  mono="Jouez une note : l'écran affiche son nom et son octave, l'écart en cents (au 0,1 cent), la fréquence et, si la note appartient à l'accordage, le numéro de corde (corde 1 = la plus aiguë). La valeur est marquée ~ au tout début (estimation grossière), puis passe à la mesure de phase précise. Le fin repère blanc est la cible ; le petit curseur jaune est la note jouée et glisse à gauche si elle est basse, à droite si elle est haute. À ±1 cent le repère passe au vert.",
  strobe_h="STROBE - précision stroboscopique",
@@ -320,25 +248,25 @@ T = {
  midi_t="6. MIDI",
  midi="Chaque commande de la pédale peut être pilotée par un pédalier ou un contrôleur MIDI (par exemple une M-Vave Chocolate Plus). <b>Aucun CC n'est assigné par défaut</b> : vous choisissez le CC de chaque commande avec le <b>MIDI Learn</b>.",
  learn_h="MIDI Learn",
- learn=["<b>Clic droit sur une commande</b> (MODE, TUNING, ◄ ou ►, REF ou le footswitch TUNE / MUTE) puis <b>MIDI Learn: &lt;commande&gt; (CC n / none)</b>. Le potard TUNING propose ses deux sens : <i>Next tuning</i> et <i>Previous tuning</i>.",
+ learn=["<b>Clic droit sur une commande</b> (un bouton de mode, la case de référence, ◄ ou ► de la barre d'accordage, ou le footswitch TUNE / MUTE) puis <b>MIDI Learn: &lt;commande&gt; (CC n / none)</b>. Un clic droit au centre de la barre d'accordage propose ses deux sens : <i>Next tuning</i> et <i>Previous tuning</i>.",
         "L'écran affiche <b>MIDI LEARN: move a control for X</b>. Bougez une pédale ou appuyez sur un bouton du contrôleur : le premier CC reçu est assigné (il n'agit pas sur l'accordeur) et l'écran confirme <b>X = CC n</b> pendant 2 secondes.",
         "<b>Clear MIDI: &lt;commande&gt;</b> supprime l'assignation ; <b>Cancel MIDI learn</b> (ou rechoisir le même Learn) arrête l'attente.",
         "Un CC déjà utilisé par une autre commande lui est retiré : un CC pilote toujours une seule commande.",
-        "Clic droit ailleurs &gt; <b>MIDI</b> : <i>Learn</i> de chaque commande avec son CC actuel (ou <i>none</i>), <b>Clear all MIDI assignments</b>, le canal MIDI (<b>Channel</b> : Omni ou 1 à 16) et le type de footswitch (pédale à accrochage ou momentanée).",
+        "Clic droit ailleurs &gt; <b>MIDI</b> : <i>Learn</i> de chaque commande avec son CC actuel (ou <i>none</i>), <b>Clear all MIDI assignments</b>, le canal MIDI (<b>MIDI channel</b> : Omni ou 1 à 16) et le type de footswitch (pédale à accrochage ou momentanée).",
         "Les assignations sont <b>enregistrées avec le projet</b>. Un projet enregistré avec une version précédente qui utilisait encore les anciens numéros de CC d'usine s'ouvre sans aucune assignation ; un projet où vous aviez changé une assignation garde ses assignations."],
  midi_rows=[["Commande", "Type"],
    ["Footswitch TUNE / MUTE", "Footswitch. À accrochage (défaut) : valeur ≥ 64 = coupé, &lt; 64 = son. Momentané : chaque appui (≥ 64) bascule."],
-   ["MODE", "Sélecteur 3 positions : 0-42 MONO, 43-85 POLY, 86-127 STROBE."],
-   ["TUNING / ► - accordage suivant", "Déclencheur : chaque valeur ≥ 64 = accordage suivant."],
-   ["TUNING / ◄ - accordage précédent", "Déclencheur : chaque valeur ≥ 64 = accordage précédent."],
-   ["REF", "Continu : 0-127 = 430-450 Hz."],
+   ["Mode", "Sélecteur 3 positions : 0-42 MONO, 43-85 POLY, 86-127 STROBE."],
+   ["► - accordage suivant", "Déclencheur : chaque valeur ≥ 64 = accordage suivant."],
+   ["◄ - accordage précédent", "Déclencheur : chaque valeur ≥ 64 = accordage précédent."],
+   ["Référence A4", "Continu : 0-127 = 430-450 Hz."],
    ["Program Change", "Le programme n choisit le favori n (programme 0 = premier favori), ou l'accordage n s'il n'y a pas de favoris. Aucun apprentissage nécessaire."]],
  midi_note="Mute, Mode et Reference A4 sont aussi des paramètres de l'hôte : automatisables ou assignables depuis le DAW (Reaper : Param &gt; Learn).",
  win_t="7. Fenêtre",
- win=["Clic droit n'importe où (hors commande, ou sur l'écran) &gt; <b>Plugin size</b> : <b>60 %</b>, <b>75 %</b>, <b>100 %</b> (la taille actuelle est cochée) ; <i>(default)</i> est indiqué à côté de la taille par défaut. Vous pouvez aussi tirer le coin inférieur droit (proportions conservées). La fenêtre ne peut jamais être plus petite que 60 %.",
+ win=["Clic droit n'importe où (hors commande) &gt; <b>Plugin size</b> : <b>60 %</b>, <b>75 %</b>, <b>100 %</b> (la taille actuelle est cochée) ; <i>(default)</i> est indiqué à côté de la taille par défaut. Vous pouvez aussi tirer le coin inférieur droit (proportions conservées). La fenêtre ne peut jamais être plus petite que 60 %.",
       "<b>Plugin size &gt; Default size (new windows)</b> choisit la taille d'ouverture de toutes les nouvelles fenêtres de CHROMA (60 % au départ). Ce réglage est commun à toutes les instances et enregistré sur l'ordinateur (<i>settings.xml</i> dans le dossier NINE HANDS | DSP\\Chroma, à côté du fichier des accordages) ; la fenêtre ouverte prend aussi cette taille tout de suite.",
-      "Dès que vous changez la taille d'une fenêtre (menu ou coin), cette instance mémorise sa propre taille dans le projet, et cette taille reste prioritaire sur la taille par défaut à la réouverture du projet. Une instance dont la taille n'a jamais été changée s'ouvre à la taille par défaut.",
-      "Le même menu contient <b>MIDI</b> (section 6), <b>Custom tunings...</b> (ouvre l'onglet CUSTOM) et <b>Show tunings file</b>. CHROMA n'a pas de ligne d'état séparée : les messages (nouvel accordage, A4 = 440 Hz, invites et confirmations du MIDI Learn) s'affichent en bandeau sur l'écran."],
+      "Dès que vous changez la taille d'une fenêtre (menu ou coin), cette instance mémorise sa propre taille dans le projet, et cette taille reste prioritaire sur la taille par défaut à la réouverture du projet.",
+      "Les menus clic droit (fond sombre, icônes, coche bleue, comme dans Octopus) s'ouvrent toujours à l'endroit du clic. Le même menu contient <b>MIDI</b> (section 6), <b>Custom tunings...</b> (ouvre l'onglet CUSTOM) et <b>Show tunings file</b>. CHROMA n'a pas de ligne d'état séparée : les messages (nouvel accordage, invites et confirmations du MIDI Learn) s'affichent en bandeau sur l'écran."],
  pre_t="8. Accordages d'usine (presets)",
  pre="Les presets de CHROMA sont ses 82 accordages d'usine. Les cordes sont listées de la plus grave à la plus aiguë. Les noms s'affichent en anglais ou en français selon le bouton EN / FR du menu.",
  bass_t="Accordages d'usine : basses",
@@ -354,10 +282,10 @@ T = {
      ["Rien à l'écran", "Vérifiez le niveau d'entrée (l'accordeur réagit dès -66 dBFS environ) et que la piste est armée / en écoute."],
      ["Mauvaise octave", "Jouez un peu plus fort ou plus près du manche ; le test d'octave a besoin de quelques cycles de la fondamentale."],
      ["Une ligne POLY reste sombre", "Cette corde n'a pas été détectée : regrattez, ou vérifiez que l'accordage choisi correspond à l'instrument."],
-     ["Le MIDI ne fait rien", "Aucun CC n'est assigné par défaut : apprenez-en un (clic droit sur la commande &gt; MIDI Learn). Vérifiez ensuite le canal MIDI (clic droit &gt; MIDI &gt; Channel) et que la piste reçoit le MIDI du contrôleur."],
+     ["Le MIDI ne fait rien", "Aucun CC n'est assigné par défaut : apprenez-en un (clic droit sur la commande &gt; MIDI Learn). Vérifiez ensuite le canal MIDI (clic droit &gt; MIDI &gt; MIDI channel) et que la piste reçoit le MIDI du contrôleur."],
      ["Plugin absent", "Re-scannez les plug-ins dans le DAW ; sous macOS lancez la commande xattr (section 2)."]],
  spec_t="10. Caractéristiques techniques",
- spec=[["Élément", "Valeur"], ["Format", "VST3 - Windows 64 bits, macOS universel (Apple Silicon + Intel)"], ["Inspiré de", "TC Electronic PolyTune"],
+ spec=[["Élément", "Valeur"], ["Format", "VST3 - Windows 64 bits, macOS universel (Apple Silicon + Intel)"], ["Inspiré de", "TC Electronic PolyTune"], ["Interface", "pédale plein cadre, écran tactile (modes, référence, accordages), LED jaune, footswitch TUNE / MUTE"],
        ["Modes", "MONO, POLY, STROBE"], ["Plage", "environ 16 Hz (Do0) à 1,6 kHz"],
        ["Précision MONO / STROBE", "±0,1 cent sur une note tenue (testé de Ré0 à Mi6)"],
        ["Précision POLY", "±0,1-0,5 cent sur les cordes à partiel isolé ; ±1-3 cents sur les cordes partageant toutes leurs harmoniques (octaves)"],
@@ -365,16 +293,16 @@ T = {
        ["Accordages", "82 accordages d'usine, favoris, accordages perso jusqu'à 10 cordes"],
        ["Latence / son", "aucune - le son passe sans modification ; coupure douce"], ["CPU", "environ 4 % d'un cœur (thread d'analyse séparé)"],
        ["MIDI", "MIDI Learn sur chaque commande (aucun CC assigné par défaut), canal Omni / 1-16, footswitch à accrochage ou momentané, Program Change = favoris ; enregistré avec le projet"],
-       ["Fenêtre", "Plugin size 60 % / 75 % / 100 %, taille par défaut des nouvelles fenêtres au choix (60 % au départ), jamais plus petite que 60 % ; redimensionnement par le coin"],
+       ["Fenêtre", "Plugin size 60 % / 75 % / 100 % (60 % = 338 x 493 px), taille par défaut des nouvelles fenêtres au choix (60 % au départ), jamais plus petite que 60 % ; redimensionnement par le coin"],
        ["Stabilité Windows", "anti-gel v2 : le thread audio n'appelle jamais l'hôte, rafraîchissement de la fenêtre piloté par un timer avec chien de garde"]]),
 }
 
 def section(lang):
-    t = T[lang]; f = cover(t, "cover.jpg", 78 * mm)
+    t = T[lang]; f = cover(t)
     f += [P(t["intro_t"], "h1"), P(t["intro"]), P(t["does_t"], "h2")] + bullets(t["does"]) + [P(t["does_note"], "note")]
     f += [P(t["inst_t"], "h1")] + bullets(t["inst"]) + [PageBreak()]
-    f += [P(t["ui_t"], "h1"), img("annotated.jpg", height=100 * mm), P(t["ui_cap"], "small"),
-          table(t["ui_rows"], [15 * mm, 30 * mm, W - 45 * mm], first_bold=False), PageBreak()]
+    f += [P(t["ui_t"], "h1"), P(t["ui_cap"]), Spacer(1, 2 * mm),
+          side(img("annotated.jpg", 82 * mm), table(t["ui_rows"], [11 * mm, 25 * mm, W - 86 * mm - 36 * mm]), 86 * mm), PageBreak()]
     f += [P(t["ctl_t"], "h1")]
     for h, x in t["ctl"]: f += [P(h, "h2"), P(x)]
     f += [P(t["menu_t"], "h2"), P(t["menu"])] + bullets(t["menu_b"])
@@ -384,9 +312,9 @@ def section(lang):
     f += [Spacer(1, 2 * mm), tabs, P(t["menu_cap"], "small")]
     f += [side(img("tuning_editor.png", 52 * mm), [P(t["cust_t"], "h2")] + [P(x) for x in t["cust"]], 56 * mm), PageBreak()]
     f += [P(t["fs_t"], "h1"), P(t["fs_h"], "h2"), P(t["fs"])]
-    f += [side(img("poly.png", 62 * mm), [P(t["poly_h"], "h2"), P(t["poly"])], 66 * mm)] + bullets(t["poly_b"])
-    f += [side(img("mono.png", 62 * mm), [P(t["mono_h"], "h2"), P(t["mono"])], 66 * mm)]
-    f += [side(img("strobe.png", 62 * mm), [P(t["strobe_h"], "h2"), P(t["strobe"])], 66 * mm), PageBreak()]
+    f += [side(img("poly.png", 50 * mm), [P(t["poly_h"], "h2"), P(t["poly"])], 54 * mm)] + bullets(t["poly_b"])
+    f += [side(img("mono.png", 50 * mm), [P(t["mono_h"], "h2"), P(t["mono"])], 54 * mm)]
+    f += [side(img("strobe.png", 50 * mm), [P(t["strobe_h"], "h2"), P(t["strobe"])], 54 * mm), PageBreak()]
     f += [P(t["midi_t"], "h1"), P(t["midi"]), P(t["learn_h"], "h2")] + bullets(t["learn"])
     f += [Spacer(1, 2 * mm), KeepTogether(table(t["midi_rows"], [52 * mm, W - 52 * mm], first_bold=True)), P(t["midi_note"], "note")]
     f += [KeepTogether([P(t["win_t"], "h1"), P(t["win"][0])])] + [P(x) for x in t["win"][1:]] + [PageBreak()]
@@ -399,4 +327,4 @@ def section(lang):
     f += [KeepTogether([P(t["spec_t"], "h1"), table(t["spec"], [40 * mm, W - 40 * mm], first_bold=True)])]
     return f
 
-build([("en", section("en")), ("fr", section("fr"))], "CHROMA " + VERSION + " - User manual / Notice")
+build([("fr", section("fr"))], "Chroma " + VERSION + " - Notice")
