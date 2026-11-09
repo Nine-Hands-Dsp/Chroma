@@ -123,6 +123,15 @@ gmask = np.clip(0.5 - sd_i * AS, 0, 1)
 inner = cv2.GaussianBlur((sd_i > -1).astype(np.float32), (0, 0), 7 * AS)
 glass = (np.full((H, W), 6.0) * (1 - 0.6 * inner))[..., None] * np.array([1.0, 1.08, 1.04])
 img = img * (1 - gmask[..., None]) + glass * gmask[..., None]
+# petit liseré lumineux sur l'arête basse droite du verre (côté opposé à la lumière : la lumière qui traverse
+# le verre ressort sur le chanfrein bas / droit). Direction : normale sortante du bord, comparée au bas-droite.
+gyx, gxx = np.gradient(sd_i, 1.0 / AS)
+gn = np.hypot(gxx, gyx) + 1e-6
+facing = np.clip((gxx * 0.62 + gyx * 0.78) / gn, 0, 1) ** 1.6          # bord tourné vers le bas-droite
+rim = np.clip(1 - np.abs(sd_i + 1.6) / 1.4, 0, 1)                      # fine bande juste à l'intérieur du verre
+rim_soft = cv2.GaussianBlur(rim, (0, 0), 1.2) * 0.5
+hl = (rim * 0.85 + rim_soft) * facing
+img += (hl * 150)[..., None] * np.array([0.92, 0.96, 1.0])
 
 # ---- occlusion autour de la LED et du footswitch
 def occlusion(mask, strength=1.0):
