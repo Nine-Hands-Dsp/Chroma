@@ -82,7 +82,9 @@ n3 = cv2.GaussianBlur(noise(4, 12), (0, 0), 2.0)
 s1, s2, s3 = n1.std(), n2.std(), n3.std()
 ridge = 0.75 * np.exp(-(n1 / (0.16 * s1)) ** 2) + 0.55 * np.exp(-(n2 / (0.14 * s2)) ** 2) + 0.25 * np.exp(-(n3 / (0.2 * s3)) ** 2)
 ridge = cv2.GaussianBlur(ridge.astype(np.float32), (0, 0), 1.0)
+FINISH = os.environ.get('CHROMA_FINISH', 'wrinkle')   # wrinkle (origine) | satin_black | gloss_white
 wrink = ridge * 1.1 * np.clip((d_in - EDGE + 2) / 4, 0, 1)          # pas de vermiculures sur l'arete
+if FINISH != 'wrinkle': wrink = wrink * 0.0
 H_all = hgt + wrink
 gy, gx = np.gradient(H_all, 1.0 / AS)
 nrm = np.dstack([-gx, -gy, np.ones_like(H_all)]); nrm /= np.linalg.norm(nrm, axis=2, keepdims=True)
@@ -104,6 +106,32 @@ edge_zone = np.clip(1 - np.abs(d_in - EDGE * 0.45) / (EDGE * 0.7), 0, 1)
 wear = np.clip((wear_n - 1.55) * 3.0, 0, 1) * edge_zone
 metal = (120 + 70 * ndl + 40 * ndh ** 8)[..., None] * np.array([1.0, 1.0, 0.98])
 encl = encl * (1 - wear[..., None]) + metal * wear[..., None]
+if FINISH == 'satin_black':
+    # peinture noire satinee : lisse, grain tres fin, reflet large et doux, flaque de lumiere diffuse en haut a gauche
+    base = np.array([15.0, 15.5, 16.5])
+    pool = np.exp(-(((UX - 330) / 300) ** 2 + ((UY - 1530) / 170) ** 2)) * 0.9 + 0.5 * np.exp(-(((UX - 40) / 60) ** 2 + ((UY - 500) / 700) ** 2))
+    encl = base * (0.65 + 0.55 * ndl)[..., None] + (30 * ndh ** 10 + 70 * ndh ** 60)[..., None] * np.array([0.95, 0.97, 1.0])
+    encl += (30 * pool)[..., None] * np.array([0.95, 0.97, 1.0])
+    encl += (cv2.GaussianBlur(np.random.default_rng(31).standard_normal((H, W)).astype(np.float32), (0, 0), 0.7) * 2.4 * (0.5 + pool))[..., None]
+    encl *= (1.0 - 0.12 * np.clip((UX - 700) / 500, 0, 1))[..., None]
+elif FINISH == 'gloss_white':
+    # laque blanche brillante : base claire, reflet net de la source (boite a lumiere en haut a gauche) sur la surface,
+    # degrade d'environnement, arete arrondie qui accroche la lumiere
+    base = np.array([226.0, 226.0, 222.0])
+    shade = 0.72 + 0.30 * ndl
+    env = 1.04 - 0.10 * np.clip((UX - 200) / 1000, 0, 1) - 0.06 * np.clip((UY - 1400) / 400, 0, 1)
+    encl = base * (shade * env)[..., None]
+    # reflet de la source : rectangle arrondi flou (softbox) incline, coeur presque blanc
+    rx, ry = (UX - 300) / 190, (UY - 1530) / 95
+    c, s_ = math.cos(-0.5), math.sin(-0.5)
+    qx, qy = rx * c - ry * s_, rx * s_ + ry * c
+    box = np.clip(1.2 - np.maximum(np.abs(qx) ** 4 + np.abs(qy) ** 4, 0) ** 0.25, 0, 1)
+    box = cv2.GaussianBlur(box.astype(np.float32), (0, 0), 6 * AS)
+    encl += (box * 34)[..., None] * np.array([1.0, 1.0, 1.0])
+    strip = np.exp(-(((UX - 28) / 16) ** 2)) * np.exp(-(((UY - 700) / 650) ** 2))
+    encl += (strip * 26)[..., None]
+    encl += (255 * ndh ** 220 + 60 * ndh ** 30)[..., None]                   # reflet net sur l'arete
+    encl += (np.random.default_rng(33).standard_normal((H, W)).astype(np.float32) * 0.9)[..., None]
 img = encl * body[..., None]
 
 # ---- ecran : cadre metal brosse + verre sombre en creux
@@ -114,15 +142,26 @@ sd_i = rrect_sd(UX, UY, *GLASS, 26.0)
 # ombre du creux autour du cadre (le cadre est encastre dans la facade)
 ring_out = np.clip(0.5 - sd_o * AS, 0, 1)
 occ = cv2.GaussianBlur(ring_out, (0, 0), 5 * AS) * (1 - ring_out)
-img *= (1 - 0.30 * occ * body)[..., None]
+# plus d'ombre / occlusion autour de l'ecran (v2) : seul le fin joint reste, et il s'efface sous l'ecran
+occ_keep = np.clip((SCREEN[1] + SCREEN[3] - 30 - UY) / 30, 0, 1)
 # pas de cadre : le verre affleure la facade (fin joint sombre + petit reflet sur l'arete basse)
 edge_lo = np.clip(1 - np.abs(sd_o + 1.0) / 1.6, 0, 1)
-img *= (1 - 0.6 * edge_lo * body)[..., None]
+# v2 : plus aucune ombre / occlusion autour de l'ecran (ni joint sombre en bas)
 # verre : noir avec ombre interne (le contenu est dessine par le plugin)
 gmask = np.clip(0.5 - sd_i * AS, 0, 1)
-inner = cv2.GaussianBlur((sd_i > -1).astype(np.float32), (0, 0), 7 * AS)
-glass = (np.full((H, W), 6.0) * (1 - 0.6 * inner))[..., None] * np.array([1.0, 1.08, 1.04])
+glass = np.full((H, W, 3), 6.0) * np.array([1.0, 1.08, 1.04])
 img = img * (1 - gmask[..., None]) + glass * gmask[..., None]
+# bevel interne plat de 4 px tout autour de l'ecran : chanfrein qui descend de la facade vers le verre.
+# Sa normale penche vers l'interieur de l'ecran : bords haut / gauche dans l'ombre, bords bas / droit eclaires.
+BEV = 4.0
+gyb, gxb = np.gradient(sd_i, 1.0 / AS)
+gnb = np.hypot(gxb, gyb) + 1e-6
+k45 = math.sqrt(0.5)
+nb = np.dstack([-gxb / gnb * k45, -gyb / gnb * k45, np.full_like(sd_i, k45)])
+bev_l = np.clip(nb @ L, 0, 1); bev_h = np.clip(nb @ HV, 0, 1)
+bev_col = (14 + 120 * bev_l ** 1.5 + 60 * bev_h ** 20)[..., None] * np.array([0.95, 0.97, 1.0])
+bev_m = np.clip(0.5 - sd_i * AS, 0, 1) * np.clip(0.5 + (sd_i + BEV) * AS, 0, 1)      # bande de 4 px juste a l'interieur
+img = img * (1 - bev_m[..., None]) + bev_col * bev_m[..., None]
 # petit liseré lumineux sur l'arête basse droite du verre (côté opposé à la lumière : la lumière qui traverse
 # le verre ressort sur le chanfrein bas / droit). Direction : normale sortante du bord, comparée au bas-droite.
 gyx, gxx = np.gradient(sd_i, 1.0 / AS)
@@ -134,7 +173,7 @@ fy = np.clip((UY - (gy0 + gh0 * 0.5)) / (gh0 * 0.5), 0, 1)            # 0 au mil
 bottom_edge = np.clip(gyx / gn, 0, 1) ** 2 * (np.sin(fx * math.pi / 2) ** 1.4)
 right_edge = np.clip(gxx / gn, 0, 1) ** 2 * (np.sin(fy * math.pi / 2) ** 1.4)
 facing = np.maximum(bottom_edge, right_edge)
-rim = np.clip(1 - np.abs(sd_i + 1.6) / 1.4, 0, 1)                      # fine bande juste à l'intérieur du verre
+rim = np.clip(1 - np.abs(sd_i + 1.0) / 1.0, 0, 1)                      # arete exterieure du bevel
 rim_soft = cv2.GaussianBlur(rim, (0, 0), 1.2) * 0.5
 hl = (rim * 0.9 + rim_soft) * facing
 img += (hl * 170)[..., None] * np.array([0.92, 0.96, 1.0])
@@ -236,5 +275,5 @@ prev = img.copy()
 over(prev, GLOW, GLR[0] * AS, GLR[1] * AS)
 over(prev, LDON, (LED[0] - LS / 2) * AS, (LED[1] - LS / 2) * AS)
 over(prev, FSREFL.astype(np.float32), (FS[0] - FS_W / 2) * AS, (FS[1] - FS_W / 2) * AS)
-Image.fromarray(np.dstack([np.clip(prev, 0, 255), alpha * 255]).astype(np.uint8), 'RGBA').save('/tmp/claude-0/chroma_prev_base.png')
+Image.fromarray(np.dstack([np.clip(prev, 0, 255), alpha * 255]).astype(np.uint8), 'RGBA').save(f'/tmp/claude-0/chroma_prev_base_{FINISH}.png')
 print(json.dumps(layout))

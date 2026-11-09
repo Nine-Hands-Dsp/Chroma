@@ -29,6 +29,7 @@ for key, txt, rot in ():   # plus de textes INPUT / OUTPUT
     x, y = u(LY[key][0]), u(LY[key][1])
     s.append(f'<text x="{x}" y="{y}" transform="rotate({rot} {x} {y})" font-family="PopM" font-size="27" letter-spacing="6" fill="#dfe2e5" text-anchor="middle" dominant-baseline="central">{txt}</text>')
 logo = open(os.path.join(ROOT, 'assets', 'NineHandsLogo.svg')).read()
+if os.environ.get('CHROMA_FINISH') == 'gloss_white': logo = logo.replace('#FFFFFF', '#000000').replace('#ffffff', '#000000')
 lw = u(LY['logo'][2]); lh = lw * 244 / 2602
 lx, ly = u(LY['logo'][0]) - lw / 2, u(LY['logo'][1]) - lh / 2
 s.append(f'<image href="data:image/svg+xml;base64,{base64.b64encode(logo.encode()).decode()}" x="{lx}" y="{ly}" width="{lw}" height="{lh}" opacity="0.88"/>')
@@ -128,10 +129,11 @@ with sync_playwright() as p:
     b = p.chromium.launch(); pg = b.new_page(viewport={'width': 2470, 'height': 3600})
     pg.goto('file://' + hp); pg.wait_for_timeout(500)
     pg.screenshot(path='/tmp/claude-0/chroma_overlay.png', omit_background=True); b.close()
-base = Image.open('/tmp/claude-0/chroma_prev_base.png').convert('RGBA')
+FIN = os.environ.get('CHROMA_FINISH', 'wrinkle')
+base = Image.open(f'/tmp/claude-0/chroma_prev_base_{FIN}.png').convert('RGBA')
 ov = Image.open('/tmp/claude-0/chroma_overlay.png').convert('RGBA')
 base.alpha_composite(ov)
 os.makedirs(os.path.join(ROOT, 'design'), exist_ok=True)
-base.save(os.path.join(ROOT, 'design', f'preview_4k_{MODE}.png'))
-base.resize((1235, 1800), Image.LANCZOS).save(os.path.join(ROOT, 'design', f'preview_{MODE}.png'))
+base.save(os.path.join(ROOT, 'design', f'preview_4k_{MODE}{"" if FIN == "wrinkle" else "_" + FIN}.png'))
+base.resize((1235, 1800), Image.LANCZOS).save(os.path.join(ROOT, 'design', f'preview_{MODE}{"" if FIN == "wrinkle" else "_" + FIN}.png'))
 print('ok')
