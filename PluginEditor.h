@@ -2,37 +2,33 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
+#include "NineHandsMenu.h"
 
 //==============================================================================
-// Géométrie du visuel (pixels de background.png : 1641 x 2026)
+// Géométrie du visuel v2 (pixels de background.png : 1235 x 1800, pédale plein cadre)
+// valeurs de tools/layout.json (repère plugin 617.5 x 900) x 2
 namespace art
 {
-constexpr float W = 1641.0f, H = 2026.0f;
-struct Circle { float x, y, r; };
-const juce::Rectangle<float> screen { 408.2f, 394.3f, 828.0f, 594.5f };
-constexpr Circle modeKnob   { 466.9f, 1261.0f, 68.8f };
-constexpr Circle tuningKnob { 817.9f, 1263.8f, 100.3f };
-constexpr Circle refKnob    { 1176.0f, 1261.0f, 68.8f };
-constexpr Circle arrowLeft  { 663.2f, 1265.3f, 30.0f };
-constexpr Circle arrowRight { 966.9f, 1265.3f, 30.0f };
-constexpr Circle ledMono    { 644.6f, 1106.2f, 15.0f };
-constexpr Circle ledPoly    { 819.3f, 1106.2f, 15.0f };
-constexpr Circle ledStrobe  { 995.5f, 1106.2f, 15.0f };
-constexpr Circle ledMute    { 819.3f, 1523.1f, 15.0f };
-constexpr Circle footswitch { 813.6f, 1695.0f, 87.4f };
-constexpr float  footCap = 53.0f;
+constexpr float W = 1235.0f, H = 1800.0f;
+const juce::Rectangle<float> screen { 78.5f, 40.0f, 1078.0f, 1345.0f };   // vitre (contenu dessiné par TunaDisplay)
+constexpr float screenRadius = 26.0f;
+const juce::Point<float> led { 617.5f, 1428.0f };  constexpr float ledS = 52.5f;          // LED jaune (sprite led_on)
+const juce::Rectangle<float> glowRect { 467.5f, 1278.0f, 300.0f, 300.0f };                // lumière de la LED sur la façade
+const juce::Point<float> fs { 617.5f, 1590.0f };   constexpr float footR = 77.82f, fsS = 391.4f;   // footswitch (bouton / sprite)
+const juce::Point<float> logo { 617.5f, 1742.0f }; constexpr float logoW = 380.0f;        // NINE HANDS | DSP
 }
 
 //==============================================================================
 namespace tunacol
 {
-const juce::Colour orange   { 0xffff7a3a };
+const juce::Colour orange   { 0xffe0662a };
 const juce::Colour amber    { 0xffffb23a };
 const juce::Colour amberDim { 0xff3a2808 };
 const juce::Colour green    { 0xff5dff8a };
 const juce::Colour greenDim { 0xff12351f };
 const juce::Colour grey     { 0xffc9ced3 };
 const juce::Colour panel    { 0xff0b0d0f };
+const juce::Colour ledYellow{ 0xffffb824 };
 }
 
 struct TunaFonts
@@ -40,54 +36,35 @@ struct TunaFonts
     TunaFonts();
     juce::Font mono (float h) const;
     juce::Font sans (float h) const;
-    juce::Typeface::Ptr monoTf, sansTf;
+    juce::Typeface::Ptr monoTf, sansTf, popMed, popBold, popLight;
 };
 
 class TunaEditor;
 
 //==============================================================================
-// Potard dessiné par-dessus le visuel : seul l'index tourne, l'éclairage du métal reste fixe.
-class PedalKnob : public juce::Component
-{
-public:
-    PedalKnob (float barFrom, float barTo) : barR0 (barFrom), barR1 (barTo) { setRepaintsOnMouseActivity (false); }
-    void paint (juce::Graphics&) override;
-    bool hitTest (int x, int y) override;
-
-    float angle = 0.0f;           // radians, 0 = vers le haut
-    std::function<void (int)> onDragSteps;     // potards crantés
-    std::function<void (float)> onDragDelta;   // potards continus (delta en "pixels")
-    std::function<void()> onClick, onDoubleClick;
-    std::function<void (int)> onWheel;
-    float stepPixels = 18.0f;
-
-    void mouseDown (const juce::MouseEvent&) override;
-    void mouseDrag (const juce::MouseEvent&) override;
-    void mouseUp (const juce::MouseEvent&) override;
-    void mouseDoubleClick (const juce::MouseEvent&) override;
-    void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
-
-private:
-    float barR0, barR1;           // index : rayon de début / fin (fraction du rayon)
-    float accum = 0, lastY = 0, lastX = 0;
-    bool dragged = false;
-    float wheelAccum = 0;
-};
-
-//==============================================================================
+// Écran tactile : rangée MONO / POLY / STROBE + référence A=440 + logo CHROMA,
+// barre d'accordage (flèches + menu déroulant), puis l'affichage du mode.
+// Tout est dessiné dans un repère de 1078 x 1345 unités (pixels du visuel).
 class TunaDisplay : public juce::Component
 {
 public:
-    TunaDisplay (TunaEditor& e) : ed (e) {}
+    TunaDisplay (TunaEditor& e);
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
+    void mouseDoubleClick (const juce::MouseEvent&) override;
     void mouseMove (const juce::MouseEvent&) override;
-    void mouseExit (const juce::MouseEvent&) override { hoverDrop = false; repaint(); }
+    void mouseExit (const juce::MouseEvent&) override;
+    void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
 
-    juce::Rectangle<float> dropRect() const;   // coordonnées "écran" (828 x 594.5)
+    static constexpr float kSW = 1078.0f, kSH = 1345.0f;
+    enum Zone { zNone = -1, zMono = 0, zPoly, zStrobe, zRefDown, zRefMid, zRefUp, zPrev, zDrop, zNext, zLogo };
+    static juce::Rectangle<float> zoneRect (int z);
+    int zoneAt (juce::Point<float> unitsPos) const;
+    juce::Rectangle<float> tuningBar() const;
     float strobePhase = 0;
     juce::String flashText;
     double flashUntil = 0;
+    int hover = zNone;
 
 private:
     void paintHeader (juce::Graphics&, const tuna::Snapshot&, int mode, bool autoMono);
@@ -95,7 +72,8 @@ private:
     void paintMono (juce::Graphics&, const tuna::Snapshot&);
     void paintStrobe (juce::Graphics&, const tuna::Snapshot&);
     TunaEditor& ed;
-    bool hoverDrop = false;
+    std::unique_ptr<juce::Drawable> wordmark;
+    float wheelAccum = 0;
 };
 
 //==============================================================================
@@ -185,7 +163,6 @@ public:
     ~TunaEditor() override;
 
     void paint (juce::Graphics&) override;
-    void paintOverChildren (juce::Graphics&) override;
     void resized() override;
     void parentHierarchyChanged() override;
     void mouseDown (const juce::MouseEvent&) override;
@@ -197,6 +174,9 @@ public:
     bool isMuted() const;
     float scale() const { return (float) getWidth() / art::W; }
 
+    void setParam (const char* id, float plain);
+    void stepTuning (int d);
+    void stepRef (int d);
     void openMenu();
     void closeMenu();
     void openTuningEditor (int libraryIndex);
@@ -206,9 +186,10 @@ public:
     static constexpr int numSizes = 3;           // 60 % (défaut d'origine) / 75 % / 100 %
     static int sizeHeight (int idx);
     void showContextMenu (int learnIdx = -1);     // learnIdx >= 0 : clic droit sur une commande (MIDI Learn en tête du menu)
-    void showContextMenuFor (juce::Component* c); // clic droit sur un potard / une flèche : MIDI Learn de cette commande
+    void showFootMenu();
     void addMidiLearnSection (juce::PopupMenu& m, int learnIdx);
     bool handleMidiLearnItem (int r);             // true si r était un élément MIDI Learn
+    void updateKnobAngles() {}                    // (v1) gardé pour les outils de rendu
 
 private:
     void timerCallback() override;
@@ -217,7 +198,7 @@ private:
     void updateTimerRate();
     int timerHz = 0;              // cadence actuelle du timer de l'éditeur (30 ou 60 en STROBE)
     uint64_t lastDisplaySig = 0;  // empreinte de ce que montre l'écran (redessin seulement si elle change)
-    juce::Image bgScaled;         // fond mis à l'échelle de la fenêtre (cache, refait par le timer seulement)
+    juce::Image bgScaled, glowScaled;   // caches à la taille de la fenêtre (refaits par le timer seulement)
     int cacheW = 0, cacheH = 0;
     float cacheScale = 0.0f;
     int resizeSettle = 0;
@@ -228,30 +209,29 @@ private:
     void* lastPeer = nullptr;
     double lastPaintMs = 0.0, repaintAskedMs = 0.0, lastScaleCheckMs = 0.0, lastRendererCheckMs = 0.0;
     void askRepaint (juce::Rectangle<int> r);
-public:
-    void updateKnobAngles();
-private:
-    void paintLed (juce::Graphics&, const art::Circle&, juce::Colour, bool on) const;
     juce::Rectangle<int> scaled (juce::Rectangle<float> r) const;
-    juce::Rectangle<int> scaled (const art::Circle& c, float rMul = 1.0f) const;
+    juce::Rectangle<float> menuArea() const;
 
-    juce::Image background;
+    juce::Image background, glow, ledOn, fsRefl;
+    std::unique_ptr<juce::Drawable> logo;
+    NineHandsMenu::MenuLnf menuLnf;           // menus clic droit au design d'Octopus
+    float ledLevel = 0.0f, drawnLed = -1.0f;
+
     TunaDisplay display { *this };
-    PedalKnob modeKnob { 0.29f, 0.72f }, tuningKnob { 0.42f, 0.92f }, refKnob { 0.29f, 0.72f };
-    struct Arrow : juce::Component
-    {
-        std::function<void()> onClick, onRight;
-        void mouseDown (const juce::MouseEvent& e) override { if (e.mods.isPopupMenu() && onRight) onRight(); }
-        void mouseUp (const juce::MouseEvent& e) override { if (! e.mods.isPopupMenu() && e.mouseWasClicked() && onClick) onClick(); }
-    };
-    Arrow arrowL, arrowR;
     struct Foot : juce::Component
     {
-        std::function<void()> onPress; std::function<void()> onRight;
+        std::function<void()> onPress, onRight;
         bool down = false;
-        bool hitTest (int x, int y) override { return juce::Point<float> ((float) x, (float) y).getDistanceFrom (getLocalBounds().toFloat().getCentre()) <= getWidth() * 0.5f; }
-        void mouseDown (const juce::MouseEvent& e) override { if (e.mods.isPopupMenu()) { if (onRight) onRight(); return; } down = true; if (onPress) onPress(); getParentComponent()->repaint(); }
-        void mouseUp (const juce::MouseEvent&) override { down = false; getParentComponent()->repaint(); }
+        float ledLevel = 0.0f;
+        juce::Image reflection;
+        bool hitTest (int x, int y) override
+        {
+            return juce::Point<float> ((float) x, (float) y).getDistanceFrom (getLocalBounds().toFloat().getCentre())
+                   <= (float) getWidth() * (art::footR * 1.35f / art::fsS);
+        }
+        void paint (juce::Graphics&) override;
+        void mouseDown (const juce::MouseEvent& e) override { if (e.mods.isPopupMenu()) { if (onRight) onRight(); return; } down = true; if (onPress) onPress(); repaint(); }
+        void mouseUp (const juce::MouseEvent& e) override { if (e.mods.isPopupMenu()) return; down = false; repaint(); }
     } foot;
     struct Dismiss : juce::Component { std::function<void()> onClick; void mouseDown (const juce::MouseEvent&) override { if (onClick) onClick(); } } dismiss;
 
@@ -260,12 +240,9 @@ public:
     TuningEditorPanel tuningEditor { *this };
 
 private:
-    float tuningAngle = 0.0f;
-    float refDragAccum = 0.0f;
     double lastTime = 0;
-    int lastMode = -1; bool lastMute = false;
+    int lastMode = -1;
     int lastLearn = -1;
-    juce::Rectangle<int> menuBounds() const;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TunaEditor)
 };

@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "")
 
-project(Chroma VERSION 1.4.2 LANGUAGES C CXX)
+project(Chroma VERSION 2.0.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -31,8 +31,16 @@ endif()
 # images et polices intégrées au plugin (rien à installer à côté)
 juce_add_binary_data(ChromaAssets SOURCES
   background.png
+  glow_yellow.png
+  led_on.png
+  fs_refl.png
+  assets/NineHandsLogo.svg
+  assets/Chroma_Wordmark_White.svg
   IBMPlexMono-SemiBold.ttf
-  IBMPlexSans-SemiBold.ttf)
+  IBMPlexSans-SemiBold.ttf
+  assets/fonts/Poppins-Medium.ttf
+  assets/fonts/Poppins-Bold.ttf
+  assets/fonts/Poppins-Light.ttf)
 
 juce_add_plugin(Chroma
   COMPANY_NAME               "NINE HANDS | DSP"

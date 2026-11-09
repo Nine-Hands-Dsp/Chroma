@@ -9,6 +9,9 @@ TunaFonts::TunaFonts()
 {
     monoTf = Typeface::createSystemTypefaceFor (BinaryData::IBMPlexMonoSemiBold_ttf, BinaryData::IBMPlexMonoSemiBold_ttfSize);
     sansTf = Typeface::createSystemTypefaceFor (BinaryData::IBMPlexSansSemiBold_ttf, BinaryData::IBMPlexSansSemiBold_ttfSize);
+    popMed   = Typeface::createSystemTypefaceFor (BinaryData::PoppinsMedium_ttf, BinaryData::PoppinsMedium_ttfSize);
+    popBold  = Typeface::createSystemTypefaceFor (BinaryData::PoppinsBold_ttf, BinaryData::PoppinsBold_ttfSize);
+    popLight = Typeface::createSystemTypefaceFor (BinaryData::PoppinsLight_ttf, BinaryData::PoppinsLight_ttfSize);
 }
 Font TunaFonts::mono (float h) const { return Font (FontOptions (monoTf).withHeight (h)); }
 Font TunaFonts::sans (float h) const { return Font (FontOptions (sansTf).withHeight (h)); }
@@ -62,122 +65,126 @@ static String instrumentTag (const tuna::Tuning& t)
 static String upperName (const tuna::Tuning& t, bool fr) { return String::fromUTF8 (tuna::displayName (t, fr).c_str()).toUpperCase(); }
 static String tr (bool fr, const char* en, const char* frUtf8) { return String::fromUTF8 (fr ? frUtf8 : en); }
 
+
+static Path triangle (Point<float> c, float w, float h, int dir)   // dir : -1 gauche, 1 droite, 2 bas
+{
+    Path p;
+    if (dir == 2) p.addTriangle (c.x - w * 0.5f, c.y - h * 0.5f, c.x + w * 0.5f, c.y - h * 0.5f, c.x, c.y + h * 0.5f);
+    else if (dir < 0) p.addTriangle (c.x + w * 0.5f, c.y - h * 0.5f, c.x + w * 0.5f, c.y + h * 0.5f, c.x - w * 0.5f, c.y);
+    else p.addTriangle (c.x - w * 0.5f, c.y - h * 0.5f, c.x - w * 0.5f, c.y + h * 0.5f, c.x + w * 0.5f, c.y);
+    return p;
+}
+
 //==============================================================================
-// PedalKnob
-bool PedalKnob::hitTest (int x, int y)
+// TunaDisplay — repère 1078 x 1345 unités (pixels du visuel), marges de 34
+namespace scr
 {
-    return Point<float> ((float) x, (float) y).getDistanceFrom (getLocalBounds().toFloat().getCentre()) <= getWidth() * 0.5f;
+constexpr float X0 = 34.0f, X1 = 1044.0f;
+constexpr float rowY = 30.0f, rowH = 62.0f;                  // rangée 1 : modes, référence, logo
+constexpr float refX = 436.0f, refW = 250.0f;
+constexpr float barY = 114.0f, barH = 84.0f;                 // rangée 2 : accordage
+constexpr float sepY = 224.0f;
+constexpr float areaTop = 246.0f, areaBot = 1275.0f;          // affichage du mode
+constexpr float logoW = 300.0f, logoH = logoW * 295.0f / 2032.0f;
 }
 
-void PedalKnob::paint (Graphics& g)
+TunaDisplay::TunaDisplay (TunaEditor& e) : ed (e)
 {
-    const auto b = getLocalBounds().toFloat();
-    const auto c = b.getCentre();
-    const float R = b.getWidth() * 0.5f;
-    const float sx = std::sin (angle), cy = -std::cos (angle);
-    auto at = [&] (float r) { return Point<float> (c.x + sx * r, c.y + cy * r); };
-
-    // trait gravé du centre jusqu'à l'index (ombre + reflet décalés : lumière fixe en haut à gauche)
-    const float thin = jmax (1.0f, R * 0.022f);
-    g.setColour (Colours::black.withAlpha (0.65f));
-    g.drawLine (Line<float> (c, at (R * barR0)), thin);
-    g.setColour (Colours::white.withAlpha (0.16f));
-    g.drawLine (Line<float> (c.translated (-0.6f, -0.6f), at (R * barR0).translated (-0.6f, -0.6f)), thin * 0.6f);
-
-    // index peint en blanc
-    const float w = jmax (2.6f, R * 0.095f);
-    Path bar;
-    bar.addRoundedRectangle (-w * 0.5f, -R * barR1, w, R * (barR1 - barR0), w * 0.45f);
-    const auto tr = AffineTransform::rotation (angle).translated (c);
-    g.setColour (Colours::black.withAlpha (0.55f));
-    g.fillPath (bar, tr.translated (R * 0.012f + 0.5f, R * 0.018f + 0.6f));
-    // l'index est plus lumineux quand il fait face à la lumière (haut-gauche)
-    // liseré sombre : l'index reste lisible même sur le reflet clair du métal
-    // liseré sombre large + halo : l'index reste lisible même sur le reflet clair du métal
-    g.setColour (Colours::black.withAlpha (0.35f));
-    g.strokePath (bar, PathStrokeType (jmax (2.4f, w * 1.1f)), tr);
-    g.setColour (Colours::black.withAlpha (0.9f));
-    g.strokePath (bar, PathStrokeType (jmax (1.4f, w * 0.5f)), tr);
-    const float facing = 0.5f + 0.5f * std::cos (angle + MathConstants<float>::pi * 0.25f);
-    g.setColour (Colours::white);
-    g.fillPath (bar, tr);
-    g.setColour (Colours::white.withAlpha (0.35f * facing));
-    g.strokePath (bar, PathStrokeType (jmax (0.6f, w * 0.12f)), tr.translated (-0.3f, -0.3f));
+    setOpaque (false);
+    if (auto xml = XmlDocument::parse (String::fromUTF8 (BinaryData::Chroma_Wordmark_White_svg, BinaryData::Chroma_Wordmark_White_svgSize)))
+        wordmark = Drawable::createFromSVG (*xml);
 }
 
-void PedalKnob::mouseDown (const MouseEvent& e)
-{
-    if (e.mods.isPopupMenu()) { if (auto* ed = findParentComponentOfClass<TunaEditor>()) ed->showContextMenuFor (this); return; }
-    lastX = (float) e.position.x; lastY = (float) e.position.y; accum = 0; dragged = false;
-}
+Rectangle<float> TunaDisplay::tuningBar() const { return { scr::X0, scr::barY, scr::X1 - scr::X0, scr::barH }; }
 
-void PedalKnob::mouseDrag (const MouseEvent& e)
+Rectangle<float> TunaDisplay::zoneRect (int z)
 {
-    if (e.mods.isPopupMenu()) return;
-    const float d = (lastY - e.position.y) + (e.position.x - lastX);
-    lastX = e.position.x; lastY = e.position.y;
-    if (std::abs ((float) e.getDistanceFromDragStart()) > 3) dragged = true;
-    if (onDragDelta) onDragDelta (d);
-    if (onDragSteps)
+    using namespace scr;
+    switch (z)
     {
-        accum += d;
-        while (accum >= stepPixels)  { accum -= stepPixels; onDragSteps (1); }
-        while (accum <= -stepPixels) { accum += stepPixels; onDragSteps (-1); }
+        case zMono:    return { X0, rowY, 112.0f, rowH };
+        case zPoly:    return { X0 + 124.0f, rowY, 112.0f, rowH };
+        case zStrobe:  return { X0 + 248.0f, rowY, 142.0f, rowH };
+        case zRefDown: return { refX, rowY, 80.0f, rowH };
+        case zRefMid:  return { refX + 80.0f, rowY, 90.0f, rowH };
+        case zRefUp:   return { refX + 170.0f, rowY, 80.0f, rowH };
+        case zPrev:    return { X0, barY, 92.0f, barH };
+        case zDrop:    return { X0 + 92.0f, barY, X1 - X0 - 184.0f, barH };
+        case zNext:    return { X1 - 92.0f, barY, 92.0f, barH };
+        case zLogo:    return { X1 - logoW, rowY, logoW, rowH };
+        default:       return {};
     }
 }
 
-void PedalKnob::mouseUp (const MouseEvent& e)
+int TunaDisplay::zoneAt (Point<float> p) const
 {
-    if (e.mods.isPopupMenu()) return;
-    if (! dragged && e.mouseWasClicked() && e.getNumberOfClicks() == 1 && onClick) onClick();
+    for (int z = zMono; z <= zNext; ++z)
+        if (zoneRect (z).expanded (3.0f).contains (p)) return z;
+    return zNone;
 }
-
-void PedalKnob::mouseDoubleClick (const MouseEvent&) { if (onDoubleClick) onDoubleClick(); }
-
-void PedalKnob::mouseWheelMove (const MouseEvent&, const MouseWheelDetails& w)
-{
-    wheelAccum += w.deltaY * (w.isReversed ? -1.0f : 1.0f);
-    while (wheelAccum >= 0.12f)  { wheelAccum -= 0.12f; if (onWheel) onWheel (1); }
-    while (wheelAccum <= -0.12f) { wheelAccum += 0.12f; if (onWheel) onWheel (-1); }
-}
-
-//==============================================================================
-// TunaDisplay — tout est dessiné dans un repère de 828 x 594.5 unités (pixels du visuel)
-static constexpr float kSW = 828.0f, kSH = 594.5f;
-
-Rectangle<float> TunaDisplay::dropRect() const { return { 414.0f - 165.0f, 16.0f, 330.0f, 66.0f }; }
 
 void TunaDisplay::mouseDown (const MouseEvent& e)
 {
-    if (e.mods.isPopupMenu()) { ed.showContextMenu(); return; }
     const float s = getWidth() / kSW;
-    const auto p = e.position / s;
-    if (dropRect().expanded (6).contains (p)) { ed.openMenu(); return; }
-    if (p.y < 90 && p.x < 220)
+    const int z = zoneAt (e.position / s);
+    if (e.mods.isPopupMenu())
     {
-        // clic sur le nom du mode : mode suivant
-        if (auto* prm = ed.proc.apvts.getParameter ("mode"))
-        {
-            const int m = (ed.modeIndex() + 1) % 3;
-            prm->beginChangeGesture(); prm->setValueNotifyingHost (prm->convertTo0to1 ((float) m)); prm->endChangeGesture();
-        }
+        // clic droit sur une commande de l'écran : MIDI Learn de cette commande en tête du menu
+        const int learn = (z >= zMono && z <= zStrobe) ? 1
+                        : (z >= zRefDown && z <= zRefUp) ? 4
+                        : (z == zPrev) ? 3
+                        : (z == zNext || z == zDrop) ? 2 : -1;
+        ed.showContextMenu (learn);
+        return;
     }
+    switch (z)
+    {
+        case zMono: case zPoly: case zStrobe: ed.setParam ("mode", (float) (z - zMono)); break;
+        case zRefDown: ed.stepRef (-1); break;
+        case zRefUp:   ed.stepRef (1); break;
+        case zPrev:    ed.stepTuning (-1); break;
+        case zNext:    ed.stepTuning (1); break;
+        case zDrop:    ed.openMenu(); break;
+        default: break;
+    }
+}
+
+void TunaDisplay::mouseDoubleClick (const MouseEvent& e)
+{
+    const float s = getWidth() / kSW;
+    if (zoneAt (e.position / s) == zRefMid) { ed.setParam ("ref", 440.0f); ed.flash ("A4 = 440 Hz"); }
 }
 
 void TunaDisplay::mouseMove (const MouseEvent& e)
 {
     const float s = getWidth() / kSW;
-    const bool h = dropRect().expanded (6).contains (e.position / s);
-    if (h != hoverDrop) { hoverDrop = h; repaint(); }
-    setMouseCursor (h ? MouseCursor::PointingHandCursor : MouseCursor::NormalCursor);
+    const int z = zoneAt (e.position / s);
+    if (z != hover) { hover = z; repaint(); }
+    setMouseCursor (z != zNone && z != zRefMid ? MouseCursor::PointingHandCursor : MouseCursor::NormalCursor);
+}
+
+void TunaDisplay::mouseExit (const MouseEvent&) { if (hover != zNone) { hover = zNone; repaint(); } }
+
+void TunaDisplay::mouseWheelMove (const MouseEvent& e, const MouseWheelDetails& w)
+{
+    const float s = getWidth() / kSW;
+    const int z = zoneAt (e.position / s);
+    wheelAccum += w.deltaY * (w.isReversed ? -1.0f : 1.0f);
+    int d = 0;
+    while (wheelAccum >= 0.12f)  { wheelAccum -= 0.12f; ++d; }
+    while (wheelAccum <= -0.12f) { wheelAccum += 0.12f; --d; }
+    if (d == 0) return;
+    if (z >= zRefDown && z <= zRefUp) ed.stepRef (d);
+    else if (z >= zMono && z <= zStrobe) ed.setParam ("mode", (float) jlimit (0, 2, ed.modeIndex() - d));
+    else if (z >= zPrev && z <= zNext) ed.stepTuning (-d);
 }
 
 void TunaDisplay::paint (Graphics& g)
 {
     const float s = getWidth() / kSW;
     g.addTransform (AffineTransform::scale (s));
-    g.setColour (Colour (0xff050706));
-    g.fillRoundedRectangle (0, 0, kSW, kSH, 6.0f);
+    Path clip; clip.addRoundedRectangle (0.0f, 0.0f, kSW, kSH, art::screenRadius);
+    g.reduceClipRegion (clip);
 
     const auto& sn = ed.snap;
     const int mode = ed.modeIndex();
@@ -187,121 +194,170 @@ void TunaDisplay::paint (Graphics& g)
     else if (mode == 1)        paintPoly (g, sn);
     else                       paintStrobe (g, sn);
 
-    // message temporaire (réglage REF, accordage, MIDI learn...)
+    // message temporaire (accordage, MIDI learn...)
     if (Time::getMillisecondCounterHiRes() * 0.001 < flashUntil && flashText.isNotEmpty())
     {
-        const auto f = ed.fonts.mono (40.0f);
-        const float w = jmin (760.0f, textWidth (f, flashText) + 70.0f);
-        Rectangle<float> r (414.0f - w * 0.5f, 250.0f, w, 92.0f);
+        const auto f = ed.fonts.mono (56.0f);
+        const float w = jmin (990.0f, textWidth (f, flashText) + 100.0f);
+        const bool twoLines = flashText.length() > 26;
+        Rectangle<float> r (kSW * 0.5f - w * 0.5f, 560.0f, w, twoLines ? 190.0f : 130.0f);
         g.setColour (Colour (0xf0080a09));
-        g.fillRoundedRectangle (r, 10.0f);
+        g.fillRoundedRectangle (r, 14.0f);
         g.setColour (tunacol::amber.withAlpha (0.7f));
-        g.drawRoundedRectangle (r, 10.0f, 2.0f);
+        g.drawRoundedRectangle (r, 14.0f, 2.5f);
         g.setFont (f);
         g.setColour (tunacol::amber);
-        // messages MIDI Learn plus longs : sur deux lignes au besoin
-        g.drawFittedText (flashText, r.toNearestInt(), Justification::centred, flashText.length() > 30 ? 2 : 1, 0.6f);
+        g.drawFittedText (flashText, r.reduced (24.0f, 10.0f).toNearestInt(), Justification::centred, twoLines ? 2 : 1, 0.6f);
     }
 
     // reflet de la vitre
-    ColourGradient glass (Colours::white.withAlpha (0.075f), 0, 0, Colours::white.withAlpha (0.0f), kSW * 0.42f, kSH * 0.55f, false);
+    ColourGradient glass (Colours::white.withAlpha (0.07f), 0, 0, Colours::white.withAlpha (0.0f), kSW * 0.45f, kSH * 0.45f, false);
     g.setGradientFill (glass);
     Path p;
-    p.startNewSubPath (0, 0); p.lineTo (kSW * 0.62f, 0); p.lineTo (0, kSH * 0.78f); p.closeSubPath();
+    p.startNewSubPath (0, 0); p.lineTo (kSW * 0.62f, 0); p.lineTo (0, kSH * 0.55f); p.closeSubPath();
     g.fillPath (p);
-    g.setColour (Colours::white.withAlpha (0.05f));
-    g.drawRoundedRectangle (1, 1, kSW - 2, kSH - 2, 6.0f, 1.5f);
 }
 
 void TunaDisplay::paintHeader (Graphics& g, const tuna::Snapshot& sn, int mode, bool autoMono)
 {
+    using namespace scr;
+    const auto orange = tunacol::orange;
+    // rangée 1 : MONO / POLY / STROBE (POLY reste allumé quand il bascule seul en MONO)
     static const char* names[3] = { "MONO", "POLY", "STROBE" };
-    g.setFont (ed.fonts.mono (42.0f));
-    g.setColour (tunacol::orange);
-    g.drawText (autoMono ? String ("POLY>MONO") : String (names[jlimit (0, 2, mode)]), Rectangle<float> (28, 18, 230, 62), Justification::centredLeft);
-    const int ref = (int) ed.proc.apvts.getRawParameterValue ("ref")->load();
-    g.drawText ("A=" + String (ref), Rectangle<float> (kSW - 28 - 200, 18, 200, 62), Justification::centredRight);
+    g.setFont (ed.fonts.mono (27.0f));
+    for (int i = 0; i < 3; ++i)
+    {
+        const auto r = zoneRect (zMono + i).reduced (1.25f);
+        const bool on = i == mode;
+        const bool hov = hover == zMono + i;
+        if (on) { g.setColour (orange.withAlpha (0.95f)); g.fillRoundedRectangle (r, 9.0f); }
+        else if (hov) { g.setColour (orange.withAlpha (0.14f)); g.fillRoundedRectangle (r, 9.0f); }
+        g.setColour (orange.withAlpha (on || hov ? 1.0f : (autoMono && i == 0 ? 0.85f : 0.55f)));
+        g.drawRoundedRectangle (r, 9.0f, 2.5f);
+        g.setColour (on ? Colour (0xff140c06) : orange);
+        g.drawText (names[i], r, Justification::centred);
+    }
 
-    // bouton du menu déroulant
-    const auto& t = ed.proc.library.get (ed.proc.getTuningIndex());
+    // référence A4 : ◄ A=440 ►
+    {
+        const Rectangle<float> r (refX + 1.25f, rowY + 1.25f, refW - 2.5f, rowH - 2.5f);
+        if (hover >= zRefDown && hover <= zRefUp) { g.setColour (orange.withAlpha (0.08f)); g.fillRoundedRectangle (r, 9.0f); }
+        g.setColour (orange.withAlpha (0.55f));
+        g.drawRoundedRectangle (r, 9.0f, 2.5f);
+        const float cy = rowY + rowH * 0.5f;
+        g.setColour (orange.withAlpha (hover == zRefDown ? 1.0f : 0.85f));
+        g.fillPath (triangle ({ refX + 33.0f, cy }, 17.0f, 20.0f, -1));
+        g.setColour (orange.withAlpha (hover == zRefUp ? 1.0f : 0.85f));
+        g.fillPath (triangle ({ refX + refW - 33.0f, cy }, 17.0f, 20.0f, 1));
+        const int ref = (int) ed.proc.apvts.getRawParameterValue ("ref")->load();
+        g.setColour (orange);
+        g.setFont (ed.fonts.mono (31.0f));
+        g.drawText ("A=" + String (ref), Rectangle<float> (refX + 50.0f, rowY, refW - 100.0f, rowH), Justification::centred);
+    }
+
+    // logo CHROMA (vectoriel) à droite
+    if (wordmark != nullptr)
+        wordmark->drawWithin (g, { X1 - logoW, rowY + (rowH - logoH) * 0.5f, logoW, logoH }, RectanglePlacement::centred, 1.0f);
+
+    // rangée 2 : barre d'accordage ◄ | G6   DROP B ▼   6/81 | ►
+    const auto& lib = ed.proc.library;
+    const int idx = ed.proc.getTuningIndex();
+    const auto& t = lib.get (idx);
     const bool green = mode == 1 && ! autoMono && sn.allInTune;
     const auto col = green ? tunacol::green : tunacol::amber;
-    const auto r = dropRect();
-    g.setColour (col.withAlpha (hoverDrop ? 0.16f : 0.07f));
-    g.fillRoundedRectangle (r, 7.0f);
-    g.setColour (col.withAlpha (green ? 0.85f : 0.55f));
-    g.drawRoundedRectangle (r.reduced (1), 7.0f, 2.0f);
-    // étiquette instrument (G6, G7, B5...)
-    const String tag = instrumentTag (t);
-    g.setFont (ed.fonts.mono (20.0f));
-    g.setColour (col.withAlpha (0.6f));
-    g.drawText (tag, Rectangle<float> (r.getX() + 12, r.getY(), 40, r.getHeight()), Justification::centredLeft);
-    // nom
-    const String nm = upperName (t, ed.proc.library.french);
-    float fh = 38.0f;
-    while (fh > 18.0f && textWidth (ed.fonts.mono (fh), nm) > r.getWidth() - 100) fh -= 1.0f;
-    g.setFont (ed.fonts.mono (fh));
+    const auto bar = tuningBar().reduced (1.25f);
+    g.setColour (col.withAlpha (hover == zDrop ? 0.14f : 0.07f));
+    g.fillRoundedRectangle (bar, 11.0f);
+    if (hover == zPrev || hover == zNext)
+    {
+        g.setColour (col.withAlpha (0.10f));
+        g.fillRoundedRectangle (zoneRect (hover).reduced (5.0f), 8.0f);
+    }
+    g.setColour (col.withAlpha (green ? 0.85f : 0.6f));
+    g.drawRoundedRectangle (bar, 11.0f, 2.5f);
+    const float cy = barY + barH * 0.5f;
     g.setColour (col);
-    g.drawText (nm, Rectangle<float> (r.getX() + 48, r.getY(), r.getWidth() - 86, r.getHeight()), Justification::centred, true);
+    g.fillPath (triangle ({ X0 + 44.0f, cy }, 22.0f, 26.0f, -1));
+    g.fillPath (triangle ({ X1 - 44.0f, cy }, 22.0f, 26.0f, 1));
+    g.setColour (col.withAlpha (0.3f));
+    g.fillRect (X0 + 91.0f, barY + 14.0f, 2.0f, barH - 28.0f);
+    g.fillRect (X1 - 93.0f, barY + 14.0f, 2.0f, barH - 28.0f);
+    // étiquette instrument (G6, G7, B5...) et position dans la liste
+    g.setFont (ed.fonts.mono (24.0f));
+    g.setColour (col.withAlpha (0.6f));
+    g.drawText (instrumentTag (t), Rectangle<float> (X0 + 116.0f, barY, 80.0f, barH), Justification::centredLeft);
+    g.setFont (ed.fonts.mono (21.0f));
+    g.setColour (col.withAlpha (0.55f));
+    g.drawText (String (idx + 1) + "/" + String (lib.size()), Rectangle<float> (X1 - 116.0f - 110.0f, barY, 110.0f, barH), Justification::centredRight);
+    // nom + triangle du menu
+    const String nm = upperName (t, lib.french);
+    const float maxW = (X1 - X0) - 2.0f * 230.0f;
+    float fh = 46.0f;
+    while (fh > 22.0f && textWidth (ed.fonts.mono (fh), nm) > maxW) fh -= 1.0f;
+    const auto f = ed.fonts.mono (fh);
+    const float nw = jmin (maxW, textWidth (f, nm)), triW = 22.0f, gap = 18.0f;
+    const float x0 = (X0 + X1) * 0.5f - (nw + gap + triW) * 0.5f;
+    g.setFont (f);
+    g.setColour (col);
+    g.drawText (nm, Rectangle<float> (x0, barY, nw + 2.0f, barH), Justification::centredLeft, true);
     if (green)
     {
         g.setColour (col.withAlpha (0.18f));
-        g.drawText (nm, Rectangle<float> (r.getX() + 48, r.getY() + 1, r.getWidth() - 86, r.getHeight()), Justification::centred, true);
+        g.drawText (nm, Rectangle<float> (x0, barY + 1.0f, nw + 2.0f, barH), Justification::centredLeft, true);
     }
-    Path tri;
-    const float tx = r.getRight() - 30, ty = r.getCentreY();
-    tri.addTriangle (tx - 9, ty - 5, tx + 9, ty - 5, tx, ty + 7);
-    g.fillPath (tri);
+    g.setColour (col);
+    g.fillPath (triangle ({ x0 + nw + gap + triW * 0.5f, cy + 2.0f }, triW, 14.0f, 2));
 
-    g.setColour (tunacol::amber.withAlpha (0.25f));
-    g.fillRect (28.0f, 96.0f, kSW - 56.0f, 2.0f);
+    g.setColour (tunacol::amber.withAlpha (0.22f));
+    g.fillRect (X0, sepY, X1 - X0, 2.0f);
 }
 
 static void drawSegment (Graphics& g, Rectangle<float> r, Colour c, bool lit)
 {
     if (lit)
     {
-        g.setColour (c.withAlpha (0.10f)); g.fillRoundedRectangle (r.expanded (7, 6), 6.0f);
-        g.setColour (c.withAlpha (0.22f)); g.fillRoundedRectangle (r.expanded (3.5f, 3.0f), 4.0f);
-        g.setColour (c); g.fillRoundedRectangle (r, 2.5f);
-        g.setColour (Colours::white.withAlpha (0.35f)); g.fillRoundedRectangle (r.reduced (r.getWidth() * 0.3f, r.getHeight() * 0.2f), 1.5f);
+        g.setColour (c.withAlpha (0.12f * c.getFloatAlpha())); g.fillRoundedRectangle (r.expanded (6.0f, 5.0f), 7.0f);
+        g.setColour (c.withAlpha (0.25f * c.getFloatAlpha())); g.fillRoundedRectangle (r.expanded (3.0f, 2.5f), 5.0f);
+        g.setColour (c); g.fillRoundedRectangle (r, 3.0f);
+        g.setColour (Colours::white.withAlpha (0.35f * c.getFloatAlpha())); g.fillRoundedRectangle (r.reduced (r.getWidth() * 0.3f, r.getHeight() * 0.2f), 2.0f);
     }
-    else { g.setColour (c); g.fillRoundedRectangle (r, 2.5f); }
+    else { g.setColour (c); g.fillRoundedRectangle (r, 3.0f); }
 }
 
 void TunaDisplay::paintPoly (Graphics& g, const tuna::Snapshot& sn)
 {
+    using namespace scr;
     const int n = jmax (1, sn.numStrings);
-    const float top = 112.0f, area = 420.0f;
-    const float rowH = jmin (68.0f, area / n);
-    const float y0 = top + (area - rowH * n) * 0.5f;
-    const float x0 = 166.0f, x1 = 800.0f;
+    const float area = areaBot - areaTop;
+    const float rowHt = jmin (200.0f, area / n);
+    const float y0 = areaTop + (area - rowHt * n) * 0.5f;
+    const float x0 = X0 + 150.0f, x1 = X1;
     const int segs = 25, mid = 12;
     const float pitch = (x1 - x0) / segs, segW = pitch * 0.62f;
+    const float centreX = x0 + pitch * (mid + 0.5f);
 
     // repère central
     g.setColour (tunacol::green.withAlpha (0.13f));
-    for (float y = y0; y < y0 + rowH * n; y += 9.0f) g.fillRect (x0 + pitch * (mid + 0.5f) - 0.75f, y, 1.5f, 4.0f);
+    for (float y = y0; y < y0 + rowHt * n; y += 12.0f) g.fillRect (centreX - 1.0f, y, 2.0f, 5.0f);
 
     for (int row = 0; row < n; ++row)
     {
         const int idx = n - 1 - row;   // corde la plus aiguë en haut
         const auto& st = sn.strings[idx];
-        const float cy = y0 + rowH * (row + 0.5f);
+        const float cy = y0 + rowHt * (row + 0.5f);
         float alpha = 0.32f;
         if (st.measured) alpha = st.active ? 1.0f : jmap (jlimit (0.4f, 6.0f, st.age), 0.4f, 6.0f, 1.0f, 0.45f);
         const bool inTune = st.measured && std::abs (st.cents) <= (float) tuna::TunerEngine::kPolyInTune;
         const auto nameCol = (inTune ? tunacol::green : tunacol::amber).withAlpha (alpha);
 
-        g.setFont (ed.fonts.mono (jmin (46.0f, rowH * 0.72f)));
+        g.setFont (ed.fonts.mono (jmin (64.0f, rowHt * 0.62f)));
         g.setColour (nameCol);
-        g.drawText (String (tuna::noteName (st.midi)), Rectangle<float> (28, cy - rowH * 0.5f, 132, rowH), Justification::centredLeft);
+        g.drawText (String (tuna::noteName (st.midi)), Rectangle<float> (X0, cy - rowHt * 0.5f, 146.0f, rowHt), Justification::centredLeft);
 
         const int lit = st.measured ? jlimit (0, segs - 1, mid + (int) std::lround (st.cents / 4.0f)) : -1;
-        const float h = rowH * 0.50f;
         for (int k = 0; k < segs; ++k)
         {
-            const float hh = (k == mid ? rowH * 0.66f : h);
+            const float hh = rowHt * (k == mid ? 0.66f : 0.48f);
             Rectangle<float> r (x0 + pitch * k + (pitch - segW) * 0.5f, cy - hh * 0.5f, segW, hh);
             if (k == lit) drawSegment (g, r, (inTune ? tunacol::green : tunacol::amber).withAlpha (alpha), true);
             else if (lit >= 0 && ((k > mid && k < lit) || (k < mid && k > lit)))
@@ -310,58 +366,62 @@ void TunaDisplay::paintPoly (Graphics& g, const tuna::Snapshot& sn)
         }
     }
 
-    g.setFont (ed.fonts.mono (27.0f));
+    g.setFont (ed.fonts.mono (30.0f));
     g.setColour (tunacol::grey.withAlpha (0.75f));
-    g.drawText ("-50", Rectangle<float> (x0 - 4, 544, 100, 36), Justification::centredLeft);
-    g.drawText ("0", Rectangle<float> (x0 + pitch * (mid + 0.5f) - 50, 544, 100, 36), Justification::centred);
-    g.drawText ("+50", Rectangle<float> (x1 - 96, 544, 100, 36), Justification::centredRight);
+    const float yl = kSH - 38.0f;
+    g.drawText ("-50", Rectangle<float> (x0, yl - 20.0f, 120.0f, 40.0f), Justification::centredLeft);
+    g.drawText ("0", Rectangle<float> (centreX - 60.0f, yl - 20.0f, 120.0f, 40.0f), Justification::centred);
+    g.drawText ("+50", Rectangle<float> (x1 - 120.0f, yl - 20.0f, 120.0f, 40.0f), Justification::centredRight);
 }
 
 void TunaDisplay::paintMono (Graphics& g, const tuna::Snapshot& sn)
 {
+    using namespace scr;
     const bool has = sn.monoMidi >= 0 && (sn.monoActive || sn.monoAge < 2.0f);
     const float alpha = ! has ? 0.3f : (sn.monoActive ? 1.0f : jmap (jlimit (0.25f, 2.0f, sn.monoAge), 0.25f, 2.0f, 1.0f, 0.4f));
     const float c = has ? sn.monoCents : 0.0f;
     const bool inTune = has && sn.monoPrecise && std::abs (c) <= (float) tuna::TunerEngine::kMonoInTune;
     const auto col = (inTune ? tunacol::green : tunacol::amber).withAlpha (alpha);
+    const float area = areaBot - areaTop;
 
-    // grande note
+    // grande note (lettre + altération en haut + octave en bas)
     const String pc = has ? String (tuna::pitchClassName (sn.monoMidi)) : String ("--");
-    const String letter = pc.substring (0, 1), acc = pc.substring (1);
+    const String letter = has ? pc.substring (0, 1) : pc, acc = has ? pc.substring (1) : String();
     const String oct = has ? String (tuna::octaveOf (sn.monoMidi)) : String();
-    const auto big = ed.fonts.mono (230.0f), small = ed.fonts.mono (82.0f);
-    const float wL = textWidth (big, has ? letter : pc), wA = textWidth (small, acc), wO = textWidth (small, oct);
-    const float total = wL + jmax (wA, wO) + 6.0f;
-    const float x = 414.0f - total * 0.5f;
-    g.setColour (col.withAlpha (alpha * 0.18f));
+    const auto big = ed.fonts.mono (420.0f), small = ed.fonts.mono (140.0f);
+    const float wL = textWidth (big, letter), wA = textWidth (small, acc), wO = textWidth (small, oct);
+    const float total = wL + jmax (wA, wO) + 10.0f;
+    const float x = kSW * 0.5f - total * 0.5f;
+    const float ny = areaTop + area * 0.30f;
     g.setFont (big);
-    g.drawText (has ? letter : pc, Rectangle<float> (x - 3, 98, wL + 6, 250), Justification::centredLeft);
+    g.setColour (col.withAlpha (alpha * 0.18f));
+    g.drawText (letter, Rectangle<float> (x - 4.0f, ny - 252.0f, wL + 8.0f, 500.0f), Justification::centredLeft);
     g.setColour (col);
-    g.drawText (has ? letter : pc, Rectangle<float> (x, 100, wL + 4, 250), Justification::centredLeft);
+    g.drawText (letter, Rectangle<float> (x, ny - 250.0f, wL + 8.0f, 500.0f), Justification::centredLeft);
     g.setFont (small);
-    if (acc.isNotEmpty()) g.drawText (acc, Rectangle<float> (x + wL + 6, 128, wA + 6, 90), Justification::centredLeft);
-    g.drawText (oct, Rectangle<float> (x + wL + 6, 240, wO + 6, 90), Justification::centredLeft);
+    if (acc.isNotEmpty()) g.drawText (acc, Rectangle<float> (x + wL + 10.0f, ny - 190.0f, wA + 10.0f, 160.0f), Justification::centredLeft);
+    g.drawText (oct, Rectangle<float> (x + wL + 10.0f, ny + 35.0f, wO + 10.0f, 160.0f), Justification::centredLeft);
 
     // barre +/- 50 cents : graduations fixes, repère central blanc (vert quand c'est juste)
-    // et curseur jaune de même taille qui glisse avec la note jouée
+    // et curseur jaune plus petit qui glisse avec la note jouée
     const int segs = 41, mid = 20;
-    const float x0 = 64.0f, x1 = kSW - 64.0f, pitch = (x1 - x0) / segs, segW = pitch * 0.6f;
-    const float cy = 392.0f;
+    const float x0 = X0 + 10.0f, x1 = X1 - 10.0f, pitch = (x1 - x0) / segs, segW = pitch * 0.6f;
+    const float cy = areaTop + area * 0.68f;
     for (int k = 0; k < segs; ++k)
     {
         if (k == mid) continue;
-        const float hh = (k - mid) % 4 == 0 ? 52.0f : 36.0f;
+        const float hh = (k - mid) % 4 == 0 ? 100.0f : 70.0f;
         drawSegment (g, Rectangle<float> (x0 + pitch * k + (pitch - segW) * 0.5f, cy - hh * 0.5f, segW, hh), tunacol::amberDim, false);
     }
-    const float markW = segW * 1.1f, markH = 118.0f;      // repère central
-    const float curW = segW * 0.8f, curH = 88.0f;         // curseur jaune, plus petit que le repère
+    const float markW = segW * 1.1f, markH = 220.0f;      // repère central
+    const float curW = segW * 0.8f, curH = 164.0f;        // curseur jaune, plus petit que le repère
     const float centreX = x0 + pitch * (mid + 0.5f);
     const Rectangle<float> centre (centreX - markW * 0.5f, cy - markH * 0.5f, markW, markH);
     if (inTune) drawSegment (g, centre, tunacol::green.withAlpha (alpha), true);
     else
     {
-        g.setColour (Colours::white.withAlpha (0.10f)); g.fillRoundedRectangle (centre.expanded (4, 3), 4.0f);
-        g.setColour (Colours::white.withAlpha (has ? 0.95f : 0.55f)); g.fillRoundedRectangle (centre, 2.5f);
+        g.setColour (Colours::white.withAlpha (0.10f)); g.fillRoundedRectangle (centre.expanded (5.0f, 4.0f), 5.0f);
+        g.setColour (Colours::white.withAlpha (has ? 0.95f : 0.55f)); g.fillRoundedRectangle (centre, 3.0f);
         if (has)
         {
             const float cc = jlimit (-50.0f, 50.0f, c);
@@ -369,31 +429,33 @@ void TunaDisplay::paintMono (Graphics& g, const tuna::Snapshot& sn)
             drawSegment (g, Rectangle<float> (cx - curW * 0.5f, cy - curH * 0.5f, curW, curH), tunacol::amber.withAlpha (alpha), true);
         }
     }
-    g.setFont (ed.fonts.mono (26.0f));
+    g.setFont (ed.fonts.mono (30.0f));
     g.setColour (tunacol::grey.withAlpha (0.7f));
-    g.drawText ("-50", Rectangle<float> (x0 - 4, 448, 100, 32), Justification::centredLeft);
-    g.drawText ("+50", Rectangle<float> (x1 - 96, 448, 100, 32), Justification::centredRight);
+    g.drawText ("-50", Rectangle<float> (x0, cy + 125.0f, 120.0f, 40.0f), Justification::centredLeft);
+    g.drawText ("+50", Rectangle<float> (x1 - 120.0f, cy + 125.0f, 120.0f, 40.0f), Justification::centredRight);
 
     // valeurs
-    g.setFont (ed.fonts.mono (56.0f));
+    const float vy = kSH - 62.0f;
+    g.setFont (ed.fonts.mono (96.0f));
     g.setColour (col);
     const String cents = has ? ((sn.monoPrecise ? String() : String ("~")) + sign1 (c) + " c") : String ("-- c");
-    g.drawText (cents, Rectangle<float> (234, 466, 360, 80), Justification::centred);
-    g.setFont (ed.fonts.mono (28.0f));
+    g.drawText (cents, Rectangle<float> (kSW * 0.5f - 280.0f, vy - 60.0f, 560.0f, 120.0f), Justification::centred);
+    g.setFont (ed.fonts.mono (32.0f));
     g.setColour (tunacol::grey.withAlpha (0.75f * jmax (0.4f, alpha)));
-    if (has) g.drawText (String (sn.monoHz, sn.monoHz < 100 ? 2 : 1) + " Hz", Rectangle<float> (28, 476, 220, 66), Justification::centredLeft);
+    if (has) g.drawText (String (sn.monoHz, sn.monoHz < 100 ? 2 : 1) + " Hz", Rectangle<float> (X0, vy - 30.0f, 230.0f, 60.0f), Justification::centredLeft);
     // corde correspondante dans l'accordage choisi (corde 1 = la plus aiguë)
     if (has)
         for (int i = 0; i < sn.numStrings; ++i)
             if (sn.strings[i].midi == sn.monoMidi)
             {
-                g.drawText (tr (ed.proc.library.french, "STRING ", "CORDE ") + String (sn.numStrings - i), Rectangle<float> (kSW - 248, 476, 220, 66), Justification::centredRight);
+                g.drawText (tr (ed.proc.library.french, "STRING ", "CORDE ") + String (sn.numStrings - i), Rectangle<float> (X1 - 230.0f, vy - 30.0f, 230.0f, 60.0f), Justification::centredRight);
                 break;
             }
 }
 
 void TunaDisplay::paintStrobe (Graphics& g, const tuna::Snapshot& sn)
 {
+    using namespace scr;
     const bool has = sn.monoMidi >= 0 && (sn.monoActive || sn.monoAge < 2.0f);
     const float alpha = ! has ? 0.3f : (sn.monoActive ? 1.0f : 0.45f);
     const float c = has ? sn.monoCents : 0.0f;
@@ -401,47 +463,49 @@ void TunaDisplay::paintStrobe (Graphics& g, const tuna::Snapshot& sn)
     const auto col = (inTune ? tunacol::green : tunacol::amber).withAlpha (alpha);
 
     // note + écart
-    g.setFont (ed.fonts.mono (120.0f));
+    g.setFont (ed.fonts.mono (250.0f));
     g.setColour (col);
     const String nm = has ? String (tuna::noteName (sn.monoMidi)) : String ("--");
-    g.drawText (nm, Rectangle<float> (40, 104, 420, 150), Justification::centredLeft);
-    g.setFont (ed.fonts.mono (58.0f));
-    g.drawText (has ? sign1 (c) + " c" : String ("-- c"), Rectangle<float> (kSW - 400, 120, 372, 96), Justification::centredRight);
-    g.setFont (ed.fonts.mono (28.0f));
+    g.drawText (nm, Rectangle<float> (X0, areaTop + 10.0f, 560.0f, 300.0f), Justification::centredLeft);
+    g.setFont (ed.fonts.mono (100.0f));
+    g.drawText (has ? sign1 (c) + " c" : String ("-- c"), Rectangle<float> (X1 - 460.0f, areaTop + 50.0f, 460.0f, 130.0f), Justification::centredRight);
+    g.setFont (ed.fonts.mono (36.0f));
     g.setColour (tunacol::grey.withAlpha (0.75f * jmax (0.4f, alpha)));
-    if (has) g.drawText (String (sn.monoHz, sn.monoHz < 100 ? 3 : 2) + " Hz", Rectangle<float> (kSW - 400, 206, 372, 50), Justification::centredRight);
+    if (has) g.drawText (String (sn.monoHz, sn.monoHz < 100 ? 3 : 2) + " Hz", Rectangle<float> (X1 - 460.0f, areaTop + 185.0f, 460.0f, 60.0f), Justification::centredRight);
 
     // bandes stroboscopiques : chaque bande défile à une vitesse proportionnelle à l'écart
-    const Rectangle<float> area (44, 284, kSW - 88, 230);
+    const Rectangle<float> area (X0, 610.0f, X1 - X0, 560.0f);
     g.setColour (Colour (0xff0c0f0d));
-    g.fillRoundedRectangle (area, 6.0f);
-    Graphics::ScopedSaveState ss (g);
-    g.reduceClipRegion (area.toNearestInt());
-    const float bandH[3] = { 86.0f, 66.0f, 50.0f };
-    const float period[3] = { 96.0f, 48.0f, 24.0f };
-    float y = area.getY() + 10.0f;
-    for (int b = 0; b < 3; ++b)
+    g.fillRoundedRectangle (area, 10.0f);
     {
-        const float P = period[b];
-        float off = std::fmod (strobePhase * period[0] * (float) (1 << b), P);
-        if (off < 0) off += P;
-        for (float x = area.getX() - P + off; x < area.getRight(); x += P)
+        Graphics::ScopedSaveState ss (g);
+        g.reduceClipRegion (area.toNearestInt());
+        const float bandH[3] = { 210.0f, 160.0f, 120.0f };
+        const float period[3] = { 200.0f, 100.0f, 50.0f };
+        float y = area.getY() + 24.0f;
+        for (int b = 0; b < 3; ++b)
         {
-            g.setColour (col.withAlpha (alpha * (0.78f - 0.14f * b)));
-            g.fillRect (Rectangle<float> (x, y, P * 0.5f, bandH[b]));
+            const float P = period[b];
+            float off = std::fmod (strobePhase * period[0] * (float) (1 << b), P);
+            if (off < 0) off += P;
+            for (float x = area.getX() - P + off; x < area.getRight(); x += P)
+            {
+                g.setColour (col.withAlpha (alpha * (0.78f - 0.14f * b)));
+                g.fillRect (Rectangle<float> (x, y, P * 0.5f, bandH[b]));
+            }
+            y += bandH[b] + 12.0f;
         }
-        y += bandH[b] + 9.0f;
+        g.setColour (Colours::black.withAlpha (0.55f));
+        g.fillRect (area.getCentreX() - 4.0f, area.getY(), 8.0f, area.getHeight());
+        g.setColour (Colours::white.withAlpha (0.35f));
+        g.fillRect (area.getCentreX() - 1.5f, area.getY(), 3.0f, area.getHeight());
     }
-    g.setColour (Colours::black.withAlpha (0.55f));
-    g.fillRect (area.getCentreX() - 2.0f, area.getY(), 4.0f, area.getHeight());
-    g.setColour (Colours::white.withAlpha (0.35f));
-    g.fillRect (area.getCentreX() - 0.75f, area.getY(), 1.5f, area.getHeight());
 
-    g.setFont (ed.fonts.mono (26.0f));
+    g.setFont (ed.fonts.mono (32.0f));
     g.setColour (tunacol::grey.withAlpha (0.7f));
     const bool fr = ed.proc.library.french;
-    g.drawText (tr (fr, "< FLAT", "< GRAVE"), Rectangle<float> (44, 530, 200, 40), Justification::centredLeft);
-    g.drawText (tr (fr, "SHARP >", "AIGU >"), Rectangle<float> (kSW - 244, 530, 200, 40), Justification::centredRight);
+    g.drawText (tr (fr, "< FLAT", "< GRAVE"), Rectangle<float> (X0, 1190.0f, 300.0f, 50.0f), Justification::centredLeft);
+    g.drawText (tr (fr, "SHARP >", "AIGU >"), Rectangle<float> (X1 - 300.0f, 1190.0f, 300.0f, 50.0f), Justification::centredRight);
 }
 
 //==============================================================================
@@ -907,93 +971,53 @@ void TuningEditorPanel::mouseDown (const MouseEvent& e)
 
 //==============================================================================
 // TunaEditor
+void TunaEditor::Foot::paint (Graphics& g)
+{
+    const auto b = getLocalBounds().toFloat();
+    // reflet de la LED jaune sur le flanc du footswitch, en fondu avec la LED
+    if (ledLevel > 0.003f && reflection.isValid())
+    {
+        g.setOpacity (ledLevel);
+        g.drawImage (reflection, b);
+        g.setOpacity (1.0f);
+    }
+    if (down)
+    {
+        // bouton assombri tant qu'on appuie (disque noir à 25 %)
+        const float r = b.getWidth() * (art::footR / art::fsS) * 0.98f;
+        const auto c = b.getCentre();
+        g.setColour (Colours::black.withAlpha (0.25f));
+        g.fillEllipse (c.x - r, c.y - r, r * 2.0f, r * 2.0f);
+    }
+}
+
 TunaEditor::TunaEditor (TunaProcessor& p)
     : AudioProcessorEditor (&p), proc (p)
 {
     background = ImageCache::getFromMemory (BinaryData::background_png, BinaryData::background_pngSize);
+    glow       = ImageCache::getFromMemory (BinaryData::glow_yellow_png, BinaryData::glow_yellow_pngSize);
+    ledOn      = ImageCache::getFromMemory (BinaryData::led_on_png, BinaryData::led_on_pngSize);
+    fsRefl     = ImageCache::getFromMemory (BinaryData::fs_refl_png, BinaryData::fs_refl_pngSize);
+    if (auto xml = XmlDocument::parse (String::fromUTF8 (BinaryData::NineHandsLogo_svg, BinaryData::NineHandsLogo_svgSize)))
+        logo = Drawable::createFromSVG (*xml);
+    menuLnf.reg = fonts.popLight; menuLnf.med = fonts.popMed; menuLnf.bold = fonts.popBold;
+    setLookAndFeel (&menuLnf);             // menus clic droit (et sous-menus) au design d'Octopus
 
     addAndMakeVisible (display);
-    for (auto* k : { &modeKnob, &tuningKnob, &refKnob }) addAndMakeVisible (k);
-    addAndMakeVisible (arrowL); addAndMakeVisible (arrowR);
     addAndMakeVisible (foot);
     addChildComponent (dismiss);
     addChildComponent (menu);
     addChildComponent (tuningEditor);
     menu.setWantsKeyboardFocus (true);
-    arrowL.setMouseCursor (MouseCursor::PointingHandCursor);
-    arrowR.setMouseCursor (MouseCursor::PointingHandCursor);
     foot.setMouseCursor (MouseCursor::PointingHandCursor);
+    foot.reflection = fsRefl;
 
-    auto setParam = [this] (const char* id, float plain)
-    {
-        if (auto* prm = proc.apvts.getParameter (id))
-        {
-            prm->beginChangeGesture();
-            prm->setValueNotifyingHost (prm->convertTo0to1 (plain));
-            prm->endChangeGesture();
-        }
-    };
-
-    // MODE : sélecteur 3 positions
-    modeKnob.stepPixels = 26.0f;
-    modeKnob.onDragSteps = [this, setParam] (int d) { setParam ("mode", (float) jlimit (0, 2, modeIndex() + d)); };
-    modeKnob.onWheel = modeKnob.onDragSteps;
-    modeKnob.onClick = [this, setParam] { setParam ("mode", (float) ((modeIndex() + 1) % 3)); };
-
-    // TUNING : encodeur sans fin (un cran = un accordage), clic = ouvre le menu
-    auto step = [this] (int d)
-    {
-        proc.stepTuning (d);
-        tuningAngle += d * MathConstants<float>::pi / 10.0f;
-        updateKnobAngles();
-        flash (upperName (proc.library.get (proc.getTuningIndex()), proc.library.french));
-        if (menu.isVisible()) menu.rebuild (true);
-    };
-    tuningKnob.stepPixels = 16.0f;
-    tuningKnob.onDragSteps = step;
-    tuningKnob.onWheel = step;
-    tuningKnob.onClick = [this] { openMenu(); };
-    arrowL.onClick = [step] { step (-1); };
-    arrowR.onClick = [step] { step (1); };
-
-    // REF : 430 - 450 Hz
-    auto refStep = [this, setParam] (int d)
-    {
-        const int r = jlimit (430, 450, (int) proc.apvts.getRawParameterValue ("ref")->load() + d);
-        setParam ("ref", (float) r);
-        flash ("A4 = " + String (r) + " Hz");
-    };
-    refKnob.onDragDelta = [this, refStep] (float d)
-    {
-        refDragAccum += d;
-        while (refDragAccum >= 7.0f)  { refDragAccum -= 7.0f; refStep (1); }
-        while (refDragAccum <= -7.0f) { refDragAccum += 7.0f; refStep (-1); }
-    };
-    refKnob.onWheel = refStep;
-    refKnob.onDoubleClick = [this, setParam] { setParam ("ref", 440.0f); flash ("A4 = 440 Hz"); };
-
-    // footswitch : TUNE / MUTE
-    foot.onPress = [this, setParam] { setParam ("mute", isMuted() ? 0.0f : 1.0f); };
-    foot.onRight = [this]
-    {
-        PopupMenu m;
-        addMidiLearnSection (m, 0);
-        m.addSectionHeader ("Footswitch MUTE (MIDI)");
-        m.addItem (2, "Latching pedal (127 = mute, 0 = on)", true, proc.apvts.getRawParameterValue ("ccmomentary")->load() < 0.5f);
-        m.addItem (3, "Momentary pedal (each press toggles)", true, proc.apvts.getRawParameterValue ("ccmomentary")->load() > 0.5f);
-        m.showMenuAsync (PopupMenu::Options().withMousePosition(), [this] (int r)
-        {
-            if (handleMidiLearnItem (r)) return;
-            if (r == 2 || r == 3)
-                if (auto* prm = proc.apvts.getParameter ("ccmomentary")) prm->setValueNotifyingHost (r == 3 ? 1.0f : 0.0f);
-        });
-    };
-    arrowL.onRight = [this] { showContextMenu (3); };
-    arrowR.onRight = [this] { showContextMenu (2); };
-
+    // footswitch : TUNE / MUTE (bascule dès l'appui, comme Echoflex)
+    foot.onPress = [this] { setParam ("mute", isMuted() ? 0.0f : 1.0f); };
+    foot.onRight = [this] { showFootMenu(); };
     dismiss.onClick = [this] { closeTuningEditor(); closeMenu(); };
 
-    // taille : identique à Freeze Shimmer, jamais plus petite que la taille par défaut
+    // taille : jamais plus petite que la taille par défaut, proportions de la pédale (1235 x 1800)
     const double aspect = (double) art::W / (double) art::H;
     setResizable (true, true);
     setResizeLimits (roundToInt (tunaui::heightDefault * aspect), tunaui::heightDefault,
@@ -1010,15 +1034,45 @@ TunaEditor::TunaEditor (TunaProcessor& p)
     rebuildCaches();
 
     snap = proc.getSnapshot();
-    updateKnobAngles();
+    ledLevel = isMuted() ? 1.0f : 0.0f;
+    foot.ledLevel = ledLevel;
     lastTime = Time::getMillisecondCounterHiRes() * 0.001;
     updateTimerRate();
 }
 
-TunaEditor::~TunaEditor() { stopTimer(); }
+TunaEditor::~TunaEditor()
+{
+    stopTimer();
+    setLookAndFeel (nullptr);
+}
 
 int TunaEditor::modeIndex() const { return jlimit (0, 2, (int) std::lround (proc.apvts.getRawParameterValue ("mode")->load())); }
 bool TunaEditor::isMuted() const { return proc.apvts.getRawParameterValue ("mute")->load() > 0.5f; }
+
+void TunaEditor::setParam (const char* id, float plain)
+{
+    if (auto* prm = proc.apvts.getParameter (id))
+    {
+        prm->beginChangeGesture();
+        prm->setValueNotifyingHost (prm->convertTo0to1 (plain));
+        prm->endChangeGesture();
+    }
+}
+
+void TunaEditor::stepTuning (int d)
+{
+    proc.stepTuning (d);
+    flash (upperName (proc.library.get (proc.getTuningIndex()), proc.library.french));
+    if (menu.isVisible()) menu.rebuild (true);
+    display.repaint();
+}
+
+void TunaEditor::stepRef (int d)
+{
+    const int r = jlimit (430, 450, (int) proc.apvts.getRawParameterValue ("ref")->load() + d);
+    setParam ("ref", (float) r);
+    display.repaint();
+}
 
 Rectangle<int> TunaEditor::scaled (Rectangle<float> r) const
 {
@@ -1026,15 +1080,11 @@ Rectangle<int> TunaEditor::scaled (Rectangle<float> r) const
     return Rectangle<float> (r.getX() * s, r.getY() * s, r.getWidth() * s, r.getHeight() * s).toNearestInt();
 }
 
-Rectangle<int> TunaEditor::scaled (const art::Circle& c, float rMul) const
+Rectangle<float> TunaEditor::menuArea() const
 {
-    return scaled (Rectangle<float> (c.x - c.r * rMul, c.y - c.r * rMul, 2 * c.r * rMul, 2 * c.r * rMul));
-}
-
-Rectangle<int> TunaEditor::menuBounds() const
-{
-    // panneau large (toute la pédale) pour rester lisible même à la taille par défaut
-    return scaled (Rectangle<float> (40.0f, art::screen.getY() + 96.0f, art::W - 80.0f, 1990.0f - art::screen.getY() - 96.0f));
+    // panneau large (toute la largeur de la pédale) sous la barre d'accordage, pour rester lisible à la taille par défaut
+    const float top = art::screen.getY() + TunaDisplay::zoneRect (TunaDisplay::zNext).getBottom() + 12.0f;
+    return { 20.0f, top, art::W - 40.0f, art::H - 20.0f - top };
 }
 
 //==============================================================================
@@ -1079,7 +1129,8 @@ float TunaEditor::physicalScale() const
     return jlimit (1.0f, 4.0f, (float) Component::getApproximateScaleFactorForComponent (this));
 }
 
-// fond déjà à la taille de la fenêtre (pixels physiques) : appelé par le constructeur et le timer, jamais par paint()
+// fond et lumière de la LED déjà à la taille de la fenêtre (pixels physiques) :
+// appelé par le constructeur et le timer, jamais par paint()
 void TunaEditor::rebuildCaches (float sc)
 {
     if (sc <= 0.0f) sc = cacheScale > 0.0f ? cacheScale : physicalScale();
@@ -1090,13 +1141,14 @@ void TunaEditor::rebuildCaches (float sc)
     cacheW = w; cacheH = h; cacheScale = sc;
     const int pw = roundToInt ((float) w * sc), ph = roundToInt ((float) h * sc);
     bgScaled = (pw >= background.getWidth()) ? background : background.rescaled (pw, ph, Graphics::highResamplingQuality);
+    const int gpx = roundToInt (art::glowRect.getWidth() * scale() * sc);
+    glowScaled = (gpx >= glow.getWidth() || gpx <= 0) ? glow : glow.rescaled (gpx, gpx, Graphics::highResamplingQuality);
     repaint();
 }
 
 // Cadence de l'affichage : 30 i/s suffisent en MONO / POLY (le moteur publie ses mesures 25 fois
 // par seconde, les segments sont discrets). En STROBE on garde 60 i/s : à 30 i/s la bande fine
-// (période 24) semblerait s'arrêter vers ±7,5 cents et tourner à l'envers dès ±3,75 cents
-// (effet « roue de diligence »), ce qui fausserait la lecture près de la justesse.
+// semblerait s'arrêter puis tourner à l'envers près de la justesse (effet « roue de diligence »).
 void TunaEditor::updateTimerRate()
 {
     const int hz = modeIndex() == 2 ? 60 : 30;
@@ -1112,16 +1164,11 @@ void TunaEditor::resized()
         proc.uiHeight.store (jlimit (tunaui::heightDefault, tunaui::heightMax, getHeight()));
 
     display.setBounds (scaled (art::screen));
-    modeKnob.setBounds (scaled (art::modeKnob));
-    tuningKnob.setBounds (scaled (art::tuningKnob));
-    refKnob.setBounds (scaled (art::refKnob));
-    arrowL.setBounds (scaled (art::arrowLeft));
-    arrowR.setBounds (scaled (art::arrowRight));
-    foot.setBounds (scaled (art::footswitch));
+    foot.setBounds (scaled (Rectangle<float> (art::fsS, art::fsS).withCentre (art::fs)));
     dismiss.setBounds (getLocalBounds());
-    menu.setBounds (menuBounds());
-    tuningEditor.setBounds (menuBounds());
-    resizeSettle = 4;              // le fond sera refait par le timer quand la taille ne bouge plus
+    menu.setBounds (scaled (menuArea()));
+    tuningEditor.setBounds (scaled (menuArea()));
+    resizeSettle = 4;              // les caches seront refaits par le timer quand la taille ne bouge plus
 }
 
 int TunaEditor::sizeHeight (int idx)
@@ -1136,66 +1183,50 @@ void TunaEditor::setWindowHeight (int h)
     setSize (roundToInt ((double) h * art::W / art::H), h);
 }
 
-void TunaEditor::paintLed (Graphics& g, const art::Circle& c, Colour col, bool on) const
-{
-    if (! on) return;
-    const float s = scale();
-    const Point<float> p (c.x * s, c.y * s);
-    const float r = c.r * s;
-    ColourGradient halo (col.withAlpha (0.45f), p.x, p.y, col.withAlpha (0.0f), p.x + r * 4.2f, p.y, true);
-    g.setGradientFill (halo);
-    g.fillEllipse (p.x - r * 4.2f, p.y - r * 4.2f, r * 8.4f, r * 8.4f);
-    ColourGradient lens (Colours::white, p.x - r * 0.25f, p.y - r * 0.3f, col.darker (0.6f), p.x + r, p.y + r, true);
-    lens.addColour (0.35, col.brighter (0.3f));
-    lens.addColour (0.75, col);
-    g.setGradientFill (lens);
-    g.fillEllipse (p.x - r, p.y - r, 2 * r, 2 * r);
-    g.setColour (Colours::white.withAlpha (0.75f));
-    g.fillEllipse (p.x - r * 0.45f, p.y - r * 0.55f, r * 0.42f, r * 0.3f);
-}
-
 void TunaEditor::paint (Graphics& g)
 {
     lastPaintMs = Time::getMillisecondCounterHiRes();
     repaintAskedMs = 0.0;
-    g.fillAll (Colour (13, 13, 14));
+    g.fillAll (Colour (13, 13, 14));       // derrière les zones transparentes (autour des jacks)
     // anti-gel : aucun rescale ici, on dessine le cache existant (ou l'original en attendant le timer)
     const Image& bg = bgScaled.isValid() ? bgScaled : background;
     g.setImageResamplingQuality (&bg == &background ? Graphics::highResamplingQuality : Graphics::lowResamplingQuality);
     if (bg.isValid())
         g.drawImage (bg, getLocalBounds().toFloat());
 
-    const int m = modeIndex();
-    const auto amber = Colour (0xffffa020);
-    paintLed (g, art::ledMono, amber, m == 0);
-    paintLed (g, art::ledPoly, amber, m == 1);
-    paintLed (g, art::ledStrobe, amber, m == 2);
-    paintLed (g, art::ledMute, Colour (0xffff2a18), isMuted());
+    const float s = scale();
+    Graphics::ScopedSaveState ss (g);
+    g.addTransform (AffineTransform::scale (s));
+    g.setImageResamplingQuality (Graphics::highResamplingQuality);
 
-    if (foot.down)
+    // LED jaune : la façade reçoit sa lumière (calque alpha précalculé), lentille allumée, léger halo
+    if (ledLevel > 0.003f)
     {
-        // footswitch enfoncé : le chapeau descend (ombre interne)
-        const float s = scale();
-        const Point<float> c (art::footswitch.x * s, art::footswitch.y * s);
-        const float r = art::footCap * s;
-        ColourGradient sh (Colours::black.withAlpha (0.0f), c.x, c.y, Colours::black.withAlpha (0.45f), c.x + r, c.y, true);
-        g.setGradientFill (sh);
-        g.fillEllipse (c.x - r, c.y - r, 2 * r, 2 * r);
-        g.setColour (Colours::black.withAlpha (0.18f));
-        g.fillEllipse (c.x - r, c.y - r, 2 * r, 2 * r);
+        const Image& gl = glowScaled.isValid() ? glowScaled : glow;
+        if (gl.isValid()) { g.setOpacity (ledLevel); g.drawImage (gl, art::glowRect); }
+        const float hs = art::ledS * 0.5f;
+        if (ledOn.isValid()) { g.setOpacity (ledLevel); g.drawImage (ledOn, { art::led.x - hs, art::led.y - hs, hs * 2.0f, hs * 2.0f }); }
+        g.setOpacity (1.0f);
+        const float hr = 40.0f;
+        ColourGradient halo (tunacol::ledYellow.withAlpha (0.30f * ledLevel), art::led.x, art::led.y,
+                             tunacol::ledYellow.withAlpha (0.0f), art::led.x + hr, art::led.y, true);
+        halo.addColour (0.4, tunacol::ledYellow.withAlpha (0.08f * ledLevel));
+        g.setGradientFill (halo);
+        g.fillEllipse (art::led.x - hr, art::led.y - hr, hr * 2.0f, hr * 2.0f);
+    }
+
+    // logo NINE HANDS | DSP (vectoriel)
+    if (logo != nullptr)
+    {
+        const auto vb = logo->getDrawableBounds();
+        const float w = art::logoW, h = w * vb.getHeight() / jmax (1.0f, vb.getWidth());
+        logo->drawWithin (g, { art::logo.x - w * 0.5f, art::logo.y - h * 0.5f, w, h }, RectanglePlacement::centred, 0.88f);
     }
 }
-
-void TunaEditor::paintOverChildren (Graphics&) {}
 
 void TunaEditor::mouseDown (const MouseEvent& e)
 {
     if (e.mods.isPopupMenu()) showContextMenu();
-}
-
-void TunaEditor::showContextMenuFor (Component* c)
-{
-    showContextMenu (c == &modeKnob ? 1 : c == &tuningKnob ? 2 : c == &refKnob ? 4 : -1);
 }
 
 void TunaEditor::addMidiLearnSection (PopupMenu& m, int learnIdx)
@@ -1203,7 +1234,7 @@ void TunaEditor::addMidiLearnSection (PopupMenu& m, int learnIdx)
     if (learnIdx < 0) return;
     const int lt = proc.learnTarget.load();
     auto ccText = [this] (int i) { const int cc = proc.ccMap[i].load(); return cc >= 0 ? "CC " + String (cc) : String ("none"); };
-    // potard TUNING (encodeur) : ses deux sens, accordage suivant et précédent
+    // barre d'accordage : ses deux sens, accordage suivant et précédent
     const int first = learnIdx == 2 ? 2 : learnIdx, last = learnIdx == 2 ? 3 : learnIdx;
     for (int i = first; i <= last; ++i)
     {
@@ -1233,6 +1264,25 @@ bool TunaEditor::handleMidiLearnItem (int r)
     return true;
 }
 
+void TunaEditor::showFootMenu()
+{
+    PopupMenu m;
+    m.setLookAndFeel (&menuLnf);
+    addMidiLearnSection (m, 0);
+    m.addSectionHeader ("Footswitch MUTE (MIDI)");
+    const bool mom = proc.apvts.getRawParameterValue ("ccmomentary")->load() > 0.5f;
+    m.addItem (2, "Latching pedal (127 = mute, 0 = on)", true, ! mom);
+    m.addItem (3, "Momentary pedal (each press toggles)", true, mom);
+    m.showMenuAsync (PopupMenu::Options().withMousePosition(),          // toujours là où l'on clique
+        [safe = Component::SafePointer<TunaEditor> (this)] (int r)
+        {
+            if (safe == nullptr || r == 0) return;
+            if (safe->handleMidiLearnItem (r)) return;
+            if (r == 2 || r == 3)
+                if (auto* prm = safe->proc.apvts.getParameter ("ccmomentary")) prm->setValueNotifyingHost (r == 3 ? 1.0f : 0.0f);
+        });
+}
+
 void TunaEditor::showContextMenu (int learnIdx)
 {
     // Plugin size : taille de cette fenêtre + taille par défaut des nouvelles fenêtres (comme Octopus)
@@ -1252,7 +1302,7 @@ void TunaEditor::showContextMenu (int learnIdx)
     const int ch = (int) proc.apvts.getRawParameterValue ("midichan")->load();
     chan.addItem (300, "Omni", true, ch == 0);
     for (int c = 1; c <= 16; ++c) chan.addItem (300 + c, String (c), true, ch == c);
-    midi.addSubMenu ("Channel", chan);
+    midi.addSubMenu ("MIDI channel", chan);
     midi.addSeparator();
     for (int i = 0; i < TunaProcessor::numLearn; ++i)
     {
@@ -1260,6 +1310,7 @@ void TunaEditor::showContextMenu (int learnIdx)
         midi.addItem (1000 + i, "Learn: " + String (TunaProcessor::learnDef (i).name) + " (" + (cc >= 0 ? "CC " + String (cc) : String ("none")) + ")",
                       true, proc.learnTarget.load() == i);
     }
+    midi.addSeparator();
     if (proc.learnTarget.load() >= 0) midi.addItem (1200, "Cancel MIDI learn");
     midi.addItem (1201, "Clear all MIDI assignments");
     midi.addSeparator();
@@ -1272,28 +1323,36 @@ void TunaEditor::showContextMenu (int learnIdx)
     addMidiLearnSection (m, learnIdx);
     m.addSubMenu ("Plugin size", size);
     m.addSubMenu ("MIDI", midi);
+    m.addSeparator();
     m.addItem (401, "Custom tunings...");
     m.addItem (402, "Show tunings file");
+    m.addSeparator();
+    m.addItem (999, "Chroma tuner v" + String (JucePlugin_VersionString) + " - NINE HANDS | DSP", false);
 
-    m.showMenuAsync (PopupMenu::Options().withMousePosition(), [this] (int r)
-    {
-        if (r >= 101 && r < 101 + numSizes) setWindowHeight (sizeHeight (r - 101));
-        else if (r >= 120 && r < 120 + numSizes)
+    m.setLookAndFeel (&menuLnf);
+    m.showMenuAsync (PopupMenu::Options().withMousePosition(),          // menu clic droit : toujours là où l'on clique
+        [safe = Component::SafePointer<TunaEditor> (this)] (int r)
         {
-            WigaWindowSize::setDefaultIndex (JucePlugin_Name, r - 120);   // toutes les nouvelles fenêtres de ce plugin
-            setWindowHeight (sizeHeight (r - 120));                       // et cette fenêtre tout de suite
-        }
-        else if (handleMidiLearnItem (r)) {}
-        else if (r == 210 || r == 211) { if (auto* p = proc.apvts.getParameter ("ccmomentary")) p->setValueNotifyingHost (r == 211 ? 1.0f : 0.0f); }
-        else if (r >= 300 && r <= 316) { if (auto* p = proc.apvts.getParameter ("midichan")) p->setValueNotifyingHost (p->convertTo0to1 ((float) (r - 300))); }
-        else if (r == 401) { openMenu(); menu.tab = 2; menu.rebuild (false); }
-        else if (r == 402)
-        {
-            auto f = TuningLibrary::file();
-            if (f.existsAsFile()) f.revealToUser();
-            else { f.getParentDirectory().createDirectory(); f.getParentDirectory().revealToUser(); }
-        }
-    });
+            if (safe == nullptr || r == 0) return;
+            auto& ed = *safe;
+            auto& pr = ed.proc;
+            if (r >= 101 && r < 101 + numSizes) ed.setWindowHeight (sizeHeight (r - 101));
+            else if (r >= 120 && r < 120 + numSizes)
+            {
+                WigaWindowSize::setDefaultIndex (JucePlugin_Name, r - 120);   // toutes les nouvelles fenêtres de ce plugin
+                ed.setWindowHeight (sizeHeight (r - 120));                    // et cette fenêtre tout de suite
+            }
+            else if (ed.handleMidiLearnItem (r)) {}
+            else if (r == 210 || r == 211) { if (auto* p = pr.apvts.getParameter ("ccmomentary")) p->setValueNotifyingHost (r == 211 ? 1.0f : 0.0f); }
+            else if (r >= 300 && r <= 316) { if (auto* p = pr.apvts.getParameter ("midichan")) p->setValueNotifyingHost (p->convertTo0to1 ((float) (r - 300))); }
+            else if (r == 401) { ed.openMenu(); ed.menu.tab = 2; ed.menu.rebuild (false); }
+            else if (r == 402)
+            {
+                auto f = TuningLibrary::file();
+                if (f.existsAsFile()) f.revealToUser();
+                else { f.getParentDirectory().createDirectory(); f.getParentDirectory().revealToUser(); }
+            }
+        });
 }
 
 void TunaEditor::openMenu()
@@ -1303,7 +1362,7 @@ void TunaEditor::openMenu()
     proc.refreshEngineTuning();
     dismiss.setVisible (true);
     dismiss.toFront (false);
-    menu.setBounds (menuBounds());
+    menu.setBounds (scaled (menuArea()));
     menu.setVisible (true);
     menu.toFront (true);
     menu.rebuild (true);
@@ -1321,7 +1380,7 @@ void TunaEditor::openTuningEditor (int libraryIndex)
     menu.setVisible (false);
     dismiss.setVisible (true);
     dismiss.toFront (false);
-    tuningEditor.setBounds (menuBounds());
+    tuningEditor.setBounds (scaled (menuArea()));
     tuningEditor.open (libraryIndex);
     tuningEditor.setVisible (true);
     tuningEditor.toFront (true);
@@ -1338,17 +1397,6 @@ void TunaEditor::flash (const String& text)
     display.flashText = text;
     display.flashUntil = Time::getMillisecondCounterHiRes() * 0.001 + 1.1;
     display.repaint();
-}
-
-void TunaEditor::updateKnobAngles()
-{
-    const float deg = MathConstants<float>::pi / 180.0f;
-    const float mA = (modeIndex() - 1) * 40.0f * deg;
-    const float ref = proc.apvts.getRawParameterValue ("ref")->load();
-    const float rA = jmap (ref, 430.0f, 450.0f, -135.0f, 135.0f) * deg;
-    if (std::abs (modeKnob.angle - mA) > 1e-4f) { modeKnob.angle = mA; askRepaint (modeKnob.getBounds()); }
-    if (std::abs (refKnob.angle - rA) > 1e-4f) { refKnob.angle = rA; askRepaint (refKnob.getBounds()); }
-    if (std::abs (tuningKnob.angle - tuningAngle) > 1e-4f) { tuningKnob.angle = tuningAngle; askRepaint (tuningKnob.getBounds()); }
 }
 
 void TunaEditor::timerCallback()
@@ -1389,7 +1437,6 @@ void TunaEditor::timerCallback()
     const int learned = proc.lastLearned.exchange (-1);
     if (learned >= 0)
     {
-        // « <Commande> = CC n » pendant 2 s
         display.flashText = String (TunaProcessor::learnDef (learned).name) + " = CC " + String (proc.ccMap[learned].load());
         display.flashUntil = now + 2.0;
     }
@@ -1400,12 +1447,25 @@ void TunaEditor::timerCallback()
     }
     lastLearn = learn;
 
-    // l'écran n'est redessiné que si ce qu'il affiche a changé (valeurs arrondies à ce qui est visible) ;
-    // les potards seulement s'ils ont bougé (updateKnobAngles), les LED seulement si le mode / MUTE change.
+    // LED jaune (MUTE) en fondu, comme Echoflex
+    {
+        const bool on = isMuted();
+        ledLevel += ((on ? 1.0f : 0.0f) - ledLevel) * (on ? 0.45f : 0.28f);
+        if (ledLevel < 0.003f) ledLevel = 0.0f;
+        if (ledLevel > 0.997f) ledLevel = 1.0f;
+        if (std::abs (ledLevel - drawnLed) > 0.004f)
+        {
+            drawnLed = ledLevel;
+            foot.ledLevel = ledLevel;
+            askRepaint (scaled (art::glowRect).getUnion (foot.getBounds()));
+        }
+    }
+
+    // l'écran n'est redessiné que si ce qu'il affiche a changé (valeurs arrondies à ce qui est visible)
     {
         uint64_t h = 1469598103934665603ull;
         auto mix = [&h] (int64_t v) { h ^= (uint64_t) v; h *= 1099511628211ull; };
-        mix (modeIndex()); mix (proc.getTuningIndex()); mix (proc.library.french ? 1 : 0);
+        mix (modeIndex()); mix (proc.getTuningIndex()); mix (proc.library.french ? 1 : 0); mix (proc.library.size());
         mix ((int) proc.apvts.getRawParameterValue ("ref")->load());
         mix (snap.allInTune); mix (snap.monoOffTuning); mix (snap.anyStringActive); mix (snap.numStrings);
         for (int i = 0; i < snap.numStrings; ++i)
@@ -1424,10 +1484,8 @@ void TunaEditor::timerCallback()
         mix (flashOn); if (flashOn) mix (display.flashText.hashCode64());
         if (h != lastDisplaySig) { lastDisplaySig = h; askRepaint (display.getBounds()); }
     }
-    updateKnobAngles();
 
     const int m = modeIndex();
-    const bool mu = isMuted();
-    if (m != lastMode || mu != lastMute) { lastMode = m; lastMute = mu; askRepaint (getLocalBounds()); }
+    if (m != lastMode) { lastMode = m; askRepaint (display.getBounds()); }
     updateTimerRate();
 }

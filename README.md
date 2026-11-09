@@ -1,7 +1,7 @@
 # CHROMA — NINE HANDS | DSP
 
 Accordeur **VST3** (Windows 64 bits + macOS universel Apple Silicon/Intel) pour guitare et basse, au format pédale
-(visuel « CHROMA Polyphonic Tuner », anciennement Tuna). Modes **MONO**, **POLY** (toutes les cordes d'un coup) et **STROBE**,
+(anciennement Tuna ; visuel v2 : pédale plein cadre 1235 × 1800 avec grand écran tactile). Modes **MONO**, **POLY** (toutes les cordes d'un coup) et **STROBE**,
 précis jusqu'aux accordages très graves (G#0, F0, E0 et même D0 ≈ 18 Hz).
 
 <p align="center">
@@ -23,22 +23,20 @@ précis jusqu'aux accordages très graves (G#0, F0, E0 et même D0 ≈ 18 Hz).
 Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la précision sur des cordes synthétiques
 (D0 → E6 en mono, 11 accordages en poly). S'il échoue, le build est signalé en rouge.
 
-## Commandes
+## Commandes (v2 : tout se règle sur l'écran)
 | Commande | Rôle |
 |---|---|
-| **MODE** | MONO (par défaut) → POLY → STROBE (clic = mode suivant, ou tourner). LED au-dessus = mode actif |
-| **TUNING** | tourner = accordage suivant / précédent (comme les flèches ◄ ►) · clic = ouvre le menu des accordages |
-| **REF** | La de référence 430 → 450 Hz · double-clic = 440 Hz |
-| Écran : nom de l'accordage | clic = menu déroulant (ALL / ★ FAVORITES / ✎ CUSTOM), en anglais par défaut ; le petit bouton **FR** de l'en-tête du menu passe les menus de l'écran en français (**EN** pour revenir), choix mémorisé pour toutes les instances. Le nom passe au **vert** quand toutes les cordes sont justes |
-| Écran : nom du mode | clic = mode suivant |
-| Footswitch **TUNE / MUTE** | coupe la sortie (LED rouge). L'accordeur fonctionne toujours, coupé ou non |
+| **MONO / POLY / STROBE** | boutons en haut de l'écran : clic = choisit le mode (MONO par défaut), molette = mode voisin |
+| **◄ A=440 ►** | La de référence 430 → 450 Hz : clic sur les flèches ou molette · double-clic sur la valeur = 440 Hz |
+| **Barre d'accordage** | ◄ ► = accordage précédent / suivant (ou molette) · clic au centre = menu déroulant (ALL / ★ FAVORITES / ✎ CUSTOM), en anglais par défaut ; le petit bouton **FR** de l'en-tête du menu passe les menus de l'écran en français (**EN** pour revenir), choix mémorisé pour toutes les instances. La barre passe au **vert** quand toutes les cordes sont justes |
+| Footswitch **TUNE / MUTE** | coupe la sortie (LED jaune allumée). L'accordeur fonctionne toujours, coupé ou non |
 
-## Clic droit (n'importe où)
+## Clic droit (n'importe où — menus au design d'Octopus, ouverts là où l'on clique)
 - **Plugin size** : 60 % (taille minimale), 75 %, 100 % — on peut aussi tirer le coin. La taille par défaut porte la mention « (default) ». **Default size (new windows)** : taille d'ouverture des nouvelles fenêtres (60 % à l'origine), commune à toutes les instances ; la choisir redimensionne aussi la fenêtre courante. Une taille changée dans un projet reste enregistrée pour cette instance.
 - **MIDI** : canal, *Learn* pour chaque fonction, pédale à verrouillage ou momentanée.
   Aucun CC assigné par défaut : clic droit > MIDI > Learn (MUTE, MODE, accordage suivant / précédent, REF) ; « Clear all MIDI assignments » efface toutes les assignations.
   Program Change n = n-ième favori (ou n-ième accordage s'il n'y a pas de favoris).
-  Clic droit sur une commande (MODE, TUNING et ses flèches, REF, footswitch) : « MIDI Learn » / « Clear MIDI » de cette commande.
+  Clic droit sur une commande (boutons de mode, flèches et barre d'accordage, référence, footswitch) : « MIDI Learn » / « Clear MIDI » de cette commande.
 - **Custom tunings…** / **Show tunings file** : accordages perso et favoris, communs à toutes les instances
   (`%APPDATA%\NINE HANDS | DSP\Chroma\library.xml` / `~/Library/Application Support/NINE HANDS | DSP/Chroma/library.xml`).
   L'accordage choisi est aussi enregistré dans le projet.
@@ -53,7 +51,7 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
   ne tombe sur aucun partiel d'une autre corde ; si toutes ses harmoniques sont partagées (cordes à l'octave dans les open tunings),
   la mesure reste juste quand les cordes sont accordées mais moins précise quand elles sont loin : finir en MONO.
 
-Notice d'utilisation bilingue (anglais puis français) : `docs/CHROMA_Manual_EN-FR_v1.3.0.pdf`.
+Notice d'utilisation (en français) : `docs/Chroma_Notice_v2.0.0.pdf`.
 
 Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
 
@@ -74,3 +72,4 @@ Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
 
 - v1.4.0 : clic droit > Plugin size > Default size (new windows) : taille par défaut des nouvelles fenêtres au choix, comme dans Octopus
 - v1.4.1 : plus aucun CC MIDI assigné par défaut (tout passe par le MIDI Learn)
+- v2.0.0 : nouveau visuel (pédale plein cadre 1235 × 1800, finition peinture froissée, grand écran tactile qui remplace les potards MODE / TUNING / REF, logo CHROMA vectoriel, LED jaune, jacks, LED et footswitch du kit photo, logo NINE HANDS | DSP vectoriel), menus clic droit au design d'Octopus
