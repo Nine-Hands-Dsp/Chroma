@@ -436,7 +436,7 @@ void TunaDisplay::paintMono (Graphics& g, const tuna::Snapshot& sn)
     g.drawText ("+50", Rectangle<float> (x1 - 120.0f, cy + 125.0f, 120.0f, 40.0f), Justification::centredRight);
 
     // valeurs : écart, fréquence et corde posés sur la même ligne de pied
-    const float base = kSH - 40.0f;     // ligne remontée de 10
+    const float base = kSH - 50.0f;     // ligne remontée (2 x 10)
     g.setFont (ed.fonts.mono (96.0f));
     g.setColour (col);
     const String cents = has ? ((sn.monoPrecise ? String() : String ("~")) + sign1 (c) + " c") : String ("-- c");
