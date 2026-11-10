@@ -51,7 +51,7 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
   ne tombe sur aucun partiel d'une autre corde ; si toutes ses harmoniques sont partagées (cordes à l'octave dans les open tunings),
   la mesure reste juste quand les cordes sont accordées mais moins précise quand elles sont loin : finir en MONO.
 
-Notice d'utilisation (en français) : `docs/Chroma_Notice_FR_v2.0.0.pdf`.
+Notice d'utilisation (en français) : `docs/Chroma_Notice_FR_v2.0.1.pdf`.
 
 Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
 
@@ -73,3 +73,4 @@ Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
 - v1.4.0 : clic droit > Plugin size > Default size (new windows) : taille par défaut des nouvelles fenêtres au choix, comme dans Octopus
 - v1.4.1 : plus aucun CC MIDI assigné par défaut (tout passe par le MIDI Learn)
 - v2.0.0 : nouveau visuel (pédale plein cadre 1235 × 1800, finition peinture froissée, grand écran tactile qui remplace les potards MODE / TUNING / REF, logo CHROMA vectoriel, LED jaune, jacks, LED et footswitch du kit photo, logo NINE HANDS | DSP vectoriel), menus clic droit au design d'Octopus
+- v2.0.1 : MONO : écart, fréquence et corde alignés sur la même ligne de pied, note et barre remontées de 20 ; logo CHROMA du même gris que les infos de l'écran

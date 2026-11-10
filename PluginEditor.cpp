@@ -93,6 +93,7 @@ TunaDisplay::TunaDisplay (TunaEditor& e) : ed (e)
     setOpaque (false);
     if (auto xml = XmlDocument::parse (String::fromUTF8 (BinaryData::Chroma_Wordmark_White_svg, BinaryData::Chroma_Wordmark_White_svgSize)))
         wordmark = Drawable::createFromSVG (*xml);
+    if (wordmark != nullptr) wordmark->replaceColour (Colours::white, tunacol::grey);   // même gris que STRING 6
 }
 
 Rectangle<float> TunaDisplay::tuningBar() const { return { scr::X0, scr::barY, scr::X1 - scr::X0, scr::barH }; }
@@ -257,7 +258,7 @@ void TunaDisplay::paintHeader (Graphics& g, const tuna::Snapshot& sn, int mode, 
 
     // logo CHROMA (vectoriel) à droite
     if (wordmark != nullptr)
-        wordmark->drawWithin (g, { X1 - logoW, rowY + (rowH - logoH) * 0.5f, logoW, logoH }, RectanglePlacement::centred, 1.0f);
+        wordmark->drawWithin (g, { X1 - logoW, rowY + (rowH - logoH) * 0.5f, logoW, logoH }, RectanglePlacement::centred, 0.75f);
 
     // rangée 2 : barre d'accordage ◄ | G6   DROP B ▼   6/81 | ►
     const auto& lib = ed.proc.library;
@@ -392,7 +393,7 @@ void TunaDisplay::paintMono (Graphics& g, const tuna::Snapshot& sn)
     const float wL = textWidth (big, letter), wA = textWidth (small, acc), wO = textWidth (small, oct);
     const float total = wL + jmax (wA, wO) + 10.0f;
     const float x = kSW * 0.5f - total * 0.5f;
-    const float ny = areaTop + area * 0.30f;
+    const float ny = areaTop + area * 0.30f - 20.0f;      // note remontée de 20
     g.setFont (big);
     g.setColour (col.withAlpha (alpha * 0.18f));
     g.drawText (letter, Rectangle<float> (x - 4.0f, ny - 252.0f, wL + 8.0f, 500.0f), Justification::centredLeft);
@@ -406,7 +407,7 @@ void TunaDisplay::paintMono (Graphics& g, const tuna::Snapshot& sn)
     // et curseur jaune plus petit qui glisse avec la note jouée
     const int segs = 41, mid = 20;
     const float x0 = X0 + 10.0f, x1 = X1 - 10.0f, pitch = (x1 - x0) / segs, segW = pitch * 0.6f;
-    const float cy = areaTop + area * 0.68f;
+    const float cy = areaTop + area * 0.68f - 20.0f;      // barre et -50 / +50 remontées de 20
     for (int k = 0; k < segs; ++k)
     {
         if (k == mid) continue;
@@ -434,21 +435,21 @@ void TunaDisplay::paintMono (Graphics& g, const tuna::Snapshot& sn)
     g.drawText ("-50", Rectangle<float> (x0, cy + 125.0f, 120.0f, 40.0f), Justification::centredLeft);
     g.drawText ("+50", Rectangle<float> (x1 - 120.0f, cy + 125.0f, 120.0f, 40.0f), Justification::centredRight);
 
-    // valeurs
-    const float vy = kSH - 62.0f;
+    // valeurs : écart, fréquence et corde posés sur la même ligne de pied
+    const float base = kSH - 30.0f;
     g.setFont (ed.fonts.mono (96.0f));
     g.setColour (col);
     const String cents = has ? ((sn.monoPrecise ? String() : String ("~")) + sign1 (c) + " c") : String ("-- c");
-    g.drawText (cents, Rectangle<float> (kSW * 0.5f - 280.0f, vy - 60.0f, 560.0f, 120.0f), Justification::centred);
+    g.drawSingleLineText (cents, roundToInt (kSW * 0.5f), roundToInt (base), Justification::horizontallyCentred);
     g.setFont (ed.fonts.mono (32.0f));
     g.setColour (tunacol::grey.withAlpha (0.75f * jmax (0.4f, alpha)));
-    if (has) g.drawText (String (sn.monoHz, sn.monoHz < 100 ? 2 : 1) + " Hz", Rectangle<float> (X0, vy - 30.0f, 230.0f, 60.0f), Justification::centredLeft);
+    if (has) g.drawSingleLineText (String (sn.monoHz, sn.monoHz < 100 ? 2 : 1) + " Hz", roundToInt (X0), roundToInt (base), Justification::left);
     // corde correspondante dans l'accordage choisi (corde 1 = la plus aiguë)
     if (has)
         for (int i = 0; i < sn.numStrings; ++i)
             if (sn.strings[i].midi == sn.monoMidi)
             {
-                g.drawText (tr (ed.proc.library.french, "STRING ", "CORDE ") + String (sn.numStrings - i), Rectangle<float> (X1 - 230.0f, vy - 30.0f, 230.0f, 60.0f), Justification::centredRight);
+                g.drawSingleLineText (tr (ed.proc.library.french, "STRING ", "CORDE ") + String (sn.numStrings - i), roundToInt (X1), roundToInt (base), Justification::right);
                 break;
             }
 }
