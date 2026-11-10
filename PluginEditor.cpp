@@ -225,7 +225,7 @@ void TunaDisplay::paintHeader (Graphics& g, const tuna::Snapshot& sn, int mode, 
     const auto orange = tunacol::orange;
     // rangée 1 : MONO / POLY / STROBE (POLY reste allumé quand il bascule seul en MONO)
     static const char* names[3] = { "MONO", "POLY", "STROBE" };
-    g.setFont (ed.fonts.mono (27.0f));
+    g.setFont (ed.fonts.mono (34.0f));
     for (int i = 0; i < 3; ++i)
     {
         const auto r = zoneRect (zMono + i).reduced (1.25f);
@@ -252,7 +252,7 @@ void TunaDisplay::paintHeader (Graphics& g, const tuna::Snapshot& sn, int mode, 
         g.fillPath (triangle ({ refX + refW - 33.0f, cy }, 17.0f, 20.0f, 1));
         const int ref = (int) ed.proc.apvts.getRawParameterValue ("ref")->load();
         g.setColour (orange);
-        g.setFont (ed.fonts.mono (31.0f));
+        g.setFont (ed.fonts.mono (39.0f));
         g.drawText ("A=" + String (ref), Rectangle<float> (refX + 50.0f, rowY, refW - 100.0f, rowH), Justification::centred);
     }
 
@@ -284,10 +284,10 @@ void TunaDisplay::paintHeader (Graphics& g, const tuna::Snapshot& sn, int mode, 
     g.fillRect (X0 + 91.0f, barY + 14.0f, 2.0f, barH - 28.0f);
     g.fillRect (X1 - 93.0f, barY + 14.0f, 2.0f, barH - 28.0f);
     // étiquette instrument (G6, G7, B5...) et position dans la liste
-    g.setFont (ed.fonts.mono (24.0f));
+    g.setFont (ed.fonts.mono (29.0f));
     g.setColour (col.withAlpha (0.6f));
     g.drawText (instrumentTag (t), Rectangle<float> (X0 + 116.0f, barY, 80.0f, barH), Justification::centredLeft);
-    g.setFont (ed.fonts.mono (21.0f));
+    g.setFont (ed.fonts.mono (26.0f));
     g.setColour (col.withAlpha (0.55f));
     g.drawText (String (idx + 1) + "/" + String (lib.size()), Rectangle<float> (X1 - 116.0f - 110.0f, barY, 110.0f, barH), Justification::centredRight);
     // nom + triangle du menu
@@ -367,7 +367,7 @@ void TunaDisplay::paintPoly (Graphics& g, const tuna::Snapshot& sn)
         }
     }
 
-    g.setFont (ed.fonts.mono (30.0f));
+    g.setFont (ed.fonts.mono (38.0f));
     g.setColour (tunacol::grey.withAlpha (0.75f));
     const float yl = kSH - 38.0f;
     g.drawText ("-50", Rectangle<float> (x0, yl - 20.0f, 120.0f, 40.0f), Justification::centredLeft);
@@ -430,18 +430,18 @@ void TunaDisplay::paintMono (Graphics& g, const tuna::Snapshot& sn)
             drawSegment (g, Rectangle<float> (cx - curW * 0.5f, cy - curH * 0.5f, curW, curH), tunacol::amber.withAlpha (alpha), true);
         }
     }
-    g.setFont (ed.fonts.mono (30.0f));
+    g.setFont (ed.fonts.mono (38.0f));
     g.setColour (tunacol::grey.withAlpha (0.7f));
     g.drawText ("-50", Rectangle<float> (x0, cy + 125.0f, 120.0f, 40.0f), Justification::centredLeft);
     g.drawText ("+50", Rectangle<float> (x1 - 120.0f, cy + 125.0f, 120.0f, 40.0f), Justification::centredRight);
 
     // valeurs : écart, fréquence et corde posés sur la même ligne de pied
-    const float base = kSH - 30.0f;
+    const float base = kSH - 40.0f;     // ligne remontée de 10
     g.setFont (ed.fonts.mono (96.0f));
     g.setColour (col);
     const String cents = has ? ((sn.monoPrecise ? String() : String ("~")) + sign1 (c) + " c") : String ("-- c");
     g.drawSingleLineText (cents, roundToInt (kSW * 0.5f), roundToInt (base), Justification::horizontallyCentred);
-    g.setFont (ed.fonts.mono (32.0f));
+    g.setFont (ed.fonts.mono (40.0f));
     g.setColour (tunacol::grey.withAlpha (0.75f * jmax (0.4f, alpha)));
     if (has) g.drawSingleLineText (String (sn.monoHz, sn.monoHz < 100 ? 2 : 1) + " Hz", roundToInt (X0), roundToInt (base), Justification::left);
     // corde correspondante dans l'accordage choisi (corde 1 = la plus aiguë)
@@ -470,7 +470,7 @@ void TunaDisplay::paintStrobe (Graphics& g, const tuna::Snapshot& sn)
     g.drawText (nm, Rectangle<float> (X0, areaTop + 10.0f, 560.0f, 300.0f), Justification::centredLeft);
     g.setFont (ed.fonts.mono (100.0f));
     g.drawText (has ? sign1 (c) + " c" : String ("-- c"), Rectangle<float> (X1 - 460.0f, areaTop + 50.0f, 460.0f, 130.0f), Justification::centredRight);
-    g.setFont (ed.fonts.mono (36.0f));
+    g.setFont (ed.fonts.mono (42.0f));
     g.setColour (tunacol::grey.withAlpha (0.75f * jmax (0.4f, alpha)));
     if (has) g.drawText (String (sn.monoHz, sn.monoHz < 100 ? 3 : 2) + " Hz", Rectangle<float> (X1 - 460.0f, areaTop + 185.0f, 460.0f, 60.0f), Justification::centredRight);
 
@@ -502,7 +502,7 @@ void TunaDisplay::paintStrobe (Graphics& g, const tuna::Snapshot& sn)
         g.fillRect (area.getCentreX() - 1.5f, area.getY(), 3.0f, area.getHeight());
     }
 
-    g.setFont (ed.fonts.mono (32.0f));
+    g.setFont (ed.fonts.mono (40.0f));
     g.setColour (tunacol::grey.withAlpha (0.7f));
     const bool fr = ed.proc.library.french;
     g.drawText (tr (fr, "< FLAT", "< GRAVE"), Rectangle<float> (X0, 1190.0f, 300.0f, 50.0f), Justification::centredLeft);
