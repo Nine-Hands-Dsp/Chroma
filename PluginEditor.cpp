@@ -1001,7 +1001,8 @@ TunaEditor::TunaEditor (TunaProcessor& p)
     fsRefl     = ImageCache::getFromMemory (BinaryData::fs_refl_png, BinaryData::fs_refl_pngSize);
     if (auto xml = XmlDocument::parse (String::fromUTF8 (BinaryData::NineHandsLogo_svg, BinaryData::NineHandsLogo_svgSize)))
         logo = Drawable::createFromSVG (*xml);
-    menuLnf.reg = fonts.popLight; menuLnf.med = fonts.popMed; menuLnf.bold = fonts.popBold;
+    menuLnf.f = { fonts.popLight, fonts.popMed, fonts.popBold };
+    glowPc = NineHandsGlow::percent (JucePlugin_Name);
     setLookAndFeel (&menuLnf);             // menus clic droit (et sous-menus) au design d'Octopus
 
     addAndMakeVisible (display);
@@ -1023,13 +1024,13 @@ TunaEditor::TunaEditor (TunaProcessor& p)
     setResizable (true, true);
     setResizeLimits (roundToInt (tunaui::heightDefault * aspect), tunaui::heightDefault,
                      roundToInt (tunaui::heightMax * aspect), tunaui::heightMax);
+    hostLock.setLimits (roundToInt (tunaui::heightDefault * aspect), tunaui::heightDefault,
+                        roundToInt (tunaui::heightMax * aspect), tunaui::heightMax);
     getConstrainer()->setFixedAspectRatio (aspect);
     setOpaque (true);                      // anti-gel : l'hôte ne redessine jamais ce qui est derrière la fenêtre
     // taille d'ouverture : celle enregistrée pour cette instance (projet) si elle existe,
     // sinon celle choisie dans le menu « Default size (new windows) »
-    const int saved = proc.uiHeight.load();
-    const int h0 = saved > 0 ? jlimit (tunaui::heightDefault, tunaui::heightMax, saved)
-                             : sizeHeight (WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes));
+    const int h0 = sizeHeight (NineHandsWindow::openIndex (JucePlugin_Name, proc.uiSizeIdx.load(), numSizes));
     openHeight = h0;
     setSize (roundToInt (h0 * aspect), h0);
     rebuildCaches();
@@ -1116,7 +1117,7 @@ void TunaEditor::useSoftwareRenderer()
    #endif
 }
 
-void TunaEditor::parentHierarchyChanged() { useSoftwareRenderer(); }
+void TunaEditor::parentHierarchyChanged() { useSoftwareRenderer(); hostLock.track (*this); }
 void TunaEditor::visibilityChanged()      { useSoftwareRenderer(); if (isShowing()) repaint(); }
 
 void TunaEditor::askRepaint (Rectangle<int> r)
@@ -1161,8 +1162,7 @@ void TunaEditor::resized()
     // anti-gel : jamais de setSize ici (mise à l'échelle Windows 125 / 150 % : l'hôte arrondit les tailles) ;
     // les limites du constrainer suffisent, sinon boucle de redimensionnement avec l'hôte
     // taille de cette instance enregistrée seulement si elle a été changée (sinon : taille par défaut choisie)
-    if (proc.uiHeight.load() > 0 || (openHeight > 0 && std::abs (getHeight() - openHeight) > 2))
-        proc.uiHeight.store (jlimit (tunaui::heightDefault, tunaui::heightMax, getHeight()));
+    // (seule la taille choisie au menu est enregistree, jamais celle obtenue en tirant le coin)
 
     display.setBounds (scaled (art::screen));
     foot.setBounds (scaled (Rectangle<float> (art::fsS, art::fsS).withCentre (art::fs)));
@@ -1182,6 +1182,7 @@ void TunaEditor::setWindowHeight (int h)
 {
     h = jlimit (tunaui::heightDefault, tunaui::heightMax, h);
     setSize (roundToInt ((double) h * art::W / art::H), h);
+    hostLock.enforce();
 }
 
 void TunaEditor::paint (Graphics& g)
@@ -1204,14 +1205,14 @@ void TunaEditor::paint (Graphics& g)
     if (ledLevel > 0.003f)
     {
         const Image& gl = glowScaled.isValid() ? glowScaled : glow;
-        if (gl.isValid()) { g.setOpacity (ledLevel); g.drawImage (gl, art::glowRect); }
+        if (gl.isValid()) { g.setOpacity (ledLevel * glowAmt()); g.drawImage (gl, art::glowRect); }
         const float hs = art::ledS * 0.5f;
         if (ledOn.isValid()) { g.setOpacity (ledLevel); g.drawImage (ledOn, { art::led.x - hs, art::led.y - hs, hs * 2.0f, hs * 2.0f }); }
         g.setOpacity (1.0f);
         const float hr = 40.0f;
-        ColourGradient halo (tunacol::ledYellow.withAlpha (0.30f * ledLevel), art::led.x, art::led.y,
+        ColourGradient halo (tunacol::ledYellow.withAlpha (0.30f * ledLevel * glowAmt()), art::led.x, art::led.y,
                              tunacol::ledYellow.withAlpha (0.0f), art::led.x + hr, art::led.y, true);
-        halo.addColour (0.4, tunacol::ledYellow.withAlpha (0.08f * ledLevel));
+        halo.addColour (0.4, tunacol::ledYellow.withAlpha (0.08f * ledLevel * glowAmt()));
         g.setGradientFill (halo);
         g.fillEllipse (art::led.x - hr, art::led.y - hr, hr * 2.0f, hr * 2.0f);
     }
@@ -1232,19 +1233,20 @@ void TunaEditor::mouseDown (const MouseEvent& e)
 
 void TunaEditor::addMidiLearnSection (PopupMenu& m, int learnIdx)
 {
+    // menu d'une commande (tronc commun) : en-tete, MIDI Learn, Clear MIDI, Cancel MIDI learn
+    // (la barre d'accordage a deux commandes : accordage suivant et precedent)
     if (learnIdx < 0) return;
     const int lt = proc.learnTarget.load();
-    auto ccText = [this] (int i) { const int cc = proc.ccMap[i].load(); return cc >= 0 ? "CC " + String (cc) : String ("none"); };
-    // barre d'accordage : ses deux sens, accordage suivant et précédent
+    auto ccText = [this] (int i) { const int cc = proc.ccMap[i].load(); return cc >= 0 ? "CC " + String (cc) : String ("not assigned"); };
     const int first = learnIdx == 2 ? 2 : learnIdx, last = learnIdx == 2 ? 3 : learnIdx;
+    NineHandsMenu::addHeader (m, menuLnf.f, NineHandsMenu::icoKnob, tunacol::ledYellow, TunaProcessor::learnDef (learnIdx).name, "MIDI: " + ccText (learnIdx));
     for (int i = first; i <= last; ++i)
     {
         const String name = TunaProcessor::learnDef (i).name;
-        m.addItem (1000 + i, "MIDI Learn: " + name + " (" + ccText (i) + ")", true, lt == i);
+        m.addItem (1000 + i, "MIDI Learn: " + name, true, lt == i);
         m.addItem (1100 + i, "Clear MIDI: " + name, proc.ccMap[i].load() >= 0);
     }
-    if (lt >= 0) m.addItem (1200, "Cancel MIDI learn");
-    m.addSeparator();
+    m.addItem (1200, "Cancel MIDI learn", lt >= 0);
 }
 
 bool TunaEditor::handleMidiLearnItem (int r)
@@ -1265,71 +1267,43 @@ bool TunaEditor::handleMidiLearnItem (int r)
     return true;
 }
 
-void TunaEditor::showFootMenu()
+void TunaEditor::showFootMenu() { showContextMenu (0); }
+
+PopupMenu TunaEditor::buildContextMenu (int learnIdx)
 {
     PopupMenu m;
-    m.setLookAndFeel (&menuLnf);
-    addMidiLearnSection (m, 0);
-    m.addSectionHeader ("Footswitch MUTE (MIDI)");
+    if (learnIdx >= 0) { addMidiLearnSection (m, learnIdx); return m; }
+    NineHandsMenu::addHeader (m, menuLnf.f, NineHandsMenu::icoPedal, tunacol::ledYellow, "Chroma", "Tuner  v" JucePlugin_VersionString);
+
+    PopupMenu midi;
+    midi.addSectionHeader ("MIDI Learn");
+    for (int i = 0; i < TunaProcessor::numLearn; ++i)
+    {
+        const int cc = proc.ccMap[i].load();
+        midi.addItem (1000 + i, "Learn: " + String (TunaProcessor::learnDef (i).name) + "  (" + (cc >= 0 ? "CC " + String (cc) : String ("not assigned")) + ")",
+                      true, proc.learnTarget.load() == i);
+    }
+    midi.addSeparator();
+    midi.addItem (1200, "Cancel MIDI learn", proc.learnTarget.load() >= 0);
+    midi.addItem (1201, "Clear all MIDI assignments");
+    midi.addSeparator();
     const bool mom = proc.apvts.getRawParameterValue ("ccmomentary")->load() > 0.5f;
-    m.addItem (2, "Latching pedal (127 = mute, 0 = on)", true, ! mom);
-    m.addItem (3, "Momentary pedal (each press toggles)", true, mom);
-    m.showMenuAsync (PopupMenu::Options().withMousePosition(),          // toujours là où l'on clique
-        [safe = Component::SafePointer<TunaEditor> (this)] (int r)
-        {
-            if (safe == nullptr || r == 0) return;
-            if (safe->handleMidiLearnItem (r)) return;
-            if (r == 2 || r == 3)
-                if (auto* prm = safe->proc.apvts.getParameter ("ccmomentary")) prm->setValueNotifyingHost (r == 3 ? 1.0f : 0.0f);
-        });
+    NineHandsWindow::addMidiFootswitchMode (midi, ! mom);
+    midi.addSeparator();
+    midi.addItem (NineHandsWindow::idProgInfo, "Program Change = favourite n (or tuning n)", false);
+    m.addSubMenu ("MIDI", midi);
+    m.addSeparator();
+
+    const char* sizeNames[numSizes] = { "60 %", "75 %", "100 %" };
+    const int heights[numSizes] = { sizeHeight (0), sizeHeight (1), sizeHeight (2) };
+    m.addSubMenu ("Plugin size", NineHandsWindow::sizeMenu (JucePlugin_Name, numSizes, sizeNames, heights, getHeight()));
+    m.addSubMenu ("Glow intensity", NineHandsWindow::glowMenu (glowPc));
+    return m;
 }
 
 void TunaEditor::showContextMenu (int learnIdx)
 {
-    // Plugin size : taille de cette fenêtre + taille par défaut des nouvelles fenêtres (comme Octopus)
-    PopupMenu size, defSize;
-    const int h = getHeight();
-    const char* sizeNames[numSizes] = { "60 %", "75 %", "100 %" };
-    const int def = WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes);
-    for (int i = 0; i < numSizes; ++i)
-    {
-        size.addItem (101 + i, String (sizeNames[i]) + (i == def ? "  (default)" : ""), true, std::abs (h - sizeHeight (i)) < 8);
-        defSize.addItem (120 + i, sizeNames[i], true, i == def);
-    }
-    size.addSeparator();
-    size.addSubMenu ("Default size (new windows)", defSize);
-
-    PopupMenu midi, chan;
-    const int ch = (int) proc.apvts.getRawParameterValue ("midichan")->load();
-    chan.addItem (300, "Omni", true, ch == 0);
-    for (int c = 1; c <= 16; ++c) chan.addItem (300 + c, String (c), true, ch == c);
-    midi.addSubMenu ("MIDI channel", chan);
-    midi.addSeparator();
-    for (int i = 0; i < TunaProcessor::numLearn; ++i)
-    {
-        const int cc = proc.ccMap[i].load();
-        midi.addItem (1000 + i, "Learn: " + String (TunaProcessor::learnDef (i).name) + " (" + (cc >= 0 ? "CC " + String (cc) : String ("none")) + ")",
-                      true, proc.learnTarget.load() == i);
-    }
-    midi.addSeparator();
-    if (proc.learnTarget.load() >= 0) midi.addItem (1200, "Cancel MIDI learn");
-    midi.addItem (1201, "Clear all MIDI assignments");
-    midi.addSeparator();
-    const bool mom = proc.apvts.getRawParameterValue ("ccmomentary")->load() > 0.5f;
-    midi.addItem (210, "Footswitch: latching pedal", true, ! mom);
-    midi.addItem (211, "Footswitch: momentary pedal", true, mom);
-    midi.addItem (-1, "Program Change n = favourite n (or tuning n)", false, false);
-
-    PopupMenu m;
-    addMidiLearnSection (m, learnIdx);
-    m.addSubMenu ("Plugin size", size);
-    m.addSubMenu ("MIDI", midi);
-    m.addSeparator();
-    m.addItem (401, "Custom tunings...");
-    m.addItem (402, "Show tunings file");
-    m.addSeparator();
-    m.addItem (999, "Chroma tuner v" + String (JucePlugin_VersionString) + " - NINE HANDS | DSP", false);
-
+    auto m = buildContextMenu (learnIdx);
     m.setLookAndFeel (&menuLnf);
     m.showMenuAsync (PopupMenu::Options().withMousePosition(),          // menu clic droit : toujours là où l'on clique
         [safe = Component::SafePointer<TunaEditor> (this)] (int r)
@@ -1337,22 +1311,13 @@ void TunaEditor::showContextMenu (int learnIdx)
             if (safe == nullptr || r == 0) return;
             auto& ed = *safe;
             auto& pr = ed.proc;
-            if (r >= 101 && r < 101 + numSizes) ed.setWindowHeight (sizeHeight (r - 101));
-            else if (r >= 120 && r < 120 + numSizes)
-            {
-                WigaWindowSize::setDefaultIndex (JucePlugin_Name, r - 120);   // toutes les nouvelles fenêtres de ce plugin
-                ed.setWindowHeight (sizeHeight (r - 120));                    // et cette fenêtre tout de suite
-            }
-            else if (ed.handleMidiLearnItem (r)) {}
-            else if (r == 210 || r == 211) { if (auto* p = pr.apvts.getParameter ("ccmomentary")) p->setValueNotifyingHost (r == 211 ? 1.0f : 0.0f); }
-            else if (r >= 300 && r <= 316) { if (auto* p = pr.apvts.getParameter ("midichan")) p->setValueNotifyingHost (p->convertTo0to1 ((float) (r - 300))); }
-            else if (r == 401) { ed.openMenu(); ed.menu.tab = 2; ed.menu.rebuild (false); }
-            else if (r == 402)
-            {
-                auto f = TuningLibrary::file();
-                if (f.existsAsFile()) f.revealToUser();
-                else { f.getParentDirectory().createDirectory(); f.getParentDirectory().revealToUser(); }
-            }
+            int inst = pr.uiSizeIdx.load();
+            const int sz = NineHandsWindow::handleSize (r, JucePlugin_Name, numSizes, inst);
+            if (sz >= 0) { pr.uiSizeIdx.store (inst); ed.setWindowHeight (sizeHeight (sz)); return; }
+            if (const int pc = NineHandsWindow::handleGlow (r, JucePlugin_Name)) { ed.glowPc = pc; ed.flash ("GLOW " + String (pc) + " %"); ed.repaint(); return; }
+            if (ed.handleMidiLearnItem (r)) return;
+            if (r == NineHandsWindow::idLatch || r == NineHandsWindow::idMomentary)
+                if (auto* p = pr.apvts.getParameter ("ccmomentary")) p->setValueNotifyingHost (r == NineHandsWindow::idMomentary ? 1.0f : 0.0f);
         });
 }
 
@@ -1409,7 +1374,13 @@ void TunaEditor::timerCallback()
 
     // moteur logiciel : seulement si la fenêtre hôte a changé, ou au plus une fois par seconde
     const double nowMs = now * 1000.0;
-    if (getPeer() != lastPeer || nowMs - lastRendererCheckMs > 1000.0) { lastRendererCheckMs = nowMs; useSoftwareRenderer(); }
+    if (getPeer() != lastPeer || nowMs - lastRendererCheckMs > 1000.0) { lastRendererCheckMs = nowMs; useSoftwareRenderer(); hostLock.track (*this); }
+    if (nowMs - lastGlowCheckMs > 3000.0)          // Glow intensity : commun a toutes les fenetres du plugin
+    {
+        lastGlowCheckMs = nowMs;
+        const int pc = NineHandsGlow::percent (JucePlugin_Name);
+        if (pc != glowPc) { glowPc = pc; repaint(); }
+    }
 
     // caches : reconstruits ici seulement (jamais dans paint)
     if (resizeSettle > 0 && --resizeSettle == 0) rebuildCaches();

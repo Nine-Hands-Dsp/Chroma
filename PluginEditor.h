@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
 #include "NineHandsMenu.h"
+#include "NineHandsWindow.h"
 
 //==============================================================================
 // Géométrie du visuel v2 (pixels de background.png : 1235 x 1800, pédale plein cadre)
@@ -187,6 +188,11 @@ public:
     static int sizeHeight (int idx);
     void showContextMenu (int learnIdx = -1);     // learnIdx >= 0 : clic droit sur une commande (MIDI Learn en tête du menu)
     void showFootMenu();
+    juce::PopupMenu buildContextMenu (int learnIdx = -1);   // menu clic droit (aussi pour l'outil de controle des menus)
+    NineHandsWindow::HostLock hostLock;          // fenetre du DAW : jamais sous 60 %, jamais au-dela de 150 %
+    float glowAmt() const { return (float) glowPc / 100.0f; }
+    int glowPc = 100;
+    double lastGlowCheckMs = 0.0;
     void addMidiLearnSection (juce::PopupMenu& m, int learnIdx);
     bool handleMidiLearnItem (int r);             // true si r était un élément MIDI Learn
     void updateKnobAngles() {}                    // (v1) gardé pour les outils de rendu

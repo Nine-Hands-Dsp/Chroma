@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "")
 
-project(Chroma VERSION 2.0.3 LANGUAGES C CXX)
+project(Chroma VERSION 2.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -61,6 +61,17 @@ target_sources(Chroma PRIVATE
   PluginProcessor.cpp
   PluginEditor.cpp)
 
+
+# verrou de taille de la fenetre du DAW (jamais sous 60 %, jamais au-dela de 150 %)
+if(APPLE)
+  target_sources(Chroma PRIVATE WindowMinSize.mm)
+  target_link_libraries(Chroma PRIVATE "-framework Cocoa")
+else()
+  target_sources(Chroma PRIVATE WindowMinSize.cpp)
+endif()
+if(WIN32)
+  target_link_libraries(Chroma PRIVATE comctl32 user32)
+endif()
 # sources en UTF-8 (accents des noms d'accordages)
 if(MSVC)
   target_compile_options(Chroma PRIVATE /utf-8)

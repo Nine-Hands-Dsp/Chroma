@@ -264,7 +264,7 @@ void TunaProcessor::getStateInformation (juce::MemoryBlock& dest)
     state.setProperty ("tuningKey", library.keyAt (tuningIndex), nullptr);
     state.setProperty ("tuningNotes", juce::String (tuna::notesToString (library.get (tuningIndex).notes)), nullptr);
     state.setProperty ("tuningName", getTuningName(), nullptr);
-    if (uiHeight.load() > 0) state.setProperty ("uiHeight", uiHeight.load(), nullptr);
+    state.setProperty ("uiSize", uiSizeIdx.load(), nullptr);
     for (int i = 0; i < numLearn; ++i)
         state.setProperty (learnDef (i).key, ccMap[i].load(), nullptr);     // -1 = non assigné
     if (auto xml = state.createXml()) copyXmlToBinary (*xml, dest);
@@ -277,8 +277,14 @@ void TunaProcessor::setStateInformation (const void* data, int size)
     auto state = juce::ValueTree::fromXml (*xml);
     apvts.replaceState (state);
     {
-        const int uh = (int) state.getProperty ("uiHeight", 0);    // absent = taille par défaut choisie dans le menu
-        uiHeight.store (uh > 0 ? juce::jlimit (tunaui::heightDefault, tunaui::heightMax, uh) : 0);
+        int idx = (int) state.getProperty ("uiSize", -1);          // -1 = suit la taille par défaut du plugin
+        if (! state.hasProperty ("uiSize"))                         // ancien projet : hauteur enregistrée (60 / 75 / 100 % seulement)
+        {
+            const int uh = (int) state.getProperty ("uiHeight", 0);
+            const int old[3] = { 493, 740, 986 };
+            for (int i = 0; i < 3; ++i) if (uh > 0 && std::abs (uh - old[i]) <= 3) idx = i;
+        }
+        uiSizeIdx.store (juce::jlimit (-1, 2, idx));
     }
     {
         // assignations MIDI Learn (-1 = non assigné ; projet sans ces propriétés : rien d'assigné)

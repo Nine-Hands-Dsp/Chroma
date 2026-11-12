@@ -6,7 +6,7 @@
 namespace tunaui
 {
 // tailles de fenêtre identiques à Freeze Shimmer : 100 % = 986 px de haut, ouverture par défaut = 493 px (= taille minimale)
-constexpr int heightDefault = 493, height60 = 592, height75 = 740, height100 = 986, heightMax = 1479;
+constexpr int heightDefault = 493, height60 = 493, height75 = 719, height100 = 958, heightMax = 1437;
 }
 
 class TunaProcessor : public juce::AudioProcessor,
@@ -63,7 +63,7 @@ public:
     void clearMidiMap();                      // efface toutes les assignations (aucun CC par défaut)
     std::atomic<int> lastMidiCc { -1 }, lastMidiValue { 0 }, lastMidiStamp { 0 };
 
-    std::atomic<int> uiHeight { 0 };          // 0 = aucune taille enregistrée pour cette instance (taille par défaut choisie)
+    std::atomic<int> uiSizeIdx { -1 };        // taille choisie au menu pour cette instance (0..2), -1 = suit la taille par défaut
     juce::AudioProcessorValueTreeState apvts;
 
 private:
