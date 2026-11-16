@@ -1277,20 +1277,16 @@ PopupMenu TunaEditor::buildContextMenu (int learnIdx)
 
     PopupMenu midi;
     midi.addSectionHeader ("MIDI Learn");
-    for (int i = 0; i < TunaProcessor::numLearn; ++i)
+    for (int i : { 1, 2, 3, 4, 0 })                                       // Mute footswitch en dernier
     {
         const int cc = proc.ccMap[i].load();
-        midi.addItem (1000 + i, "Learn: " + String (TunaProcessor::learnDef (i).name) + "  (" + (cc >= 0 ? "CC " + String (cc) : String ("not assigned")) + ")",
-                      true, proc.learnTarget.load() == i);
+        NineHandsMenu::addItem (midi, 1000 + i, "Learn: " + String (TunaProcessor::learnDef (i).name) + " (" + (cc >= 0 ? "CC " + String (cc) : String ("not assigned")) + ")",
+                                i == 0 ? NineHandsMenu::icoSwitch : NineHandsMenu::icoMidi, true, proc.learnTarget.load() == i);
     }
     midi.addSeparator();
     midi.addItem (1200, "Cancel MIDI learn", proc.learnTarget.load() >= 0);
     midi.addItem (1201, "Clear all MIDI assignments");
-    midi.addSeparator();
-    const bool mom = proc.apvts.getRawParameterValue ("ccmomentary")->load() > 0.5f;
-    NineHandsWindow::addMidiFootswitchMode (midi, ! mom);
-    midi.addSeparator();
-    midi.addItem (NineHandsWindow::idProgInfo, "Program Change = favourite n (or tuning n)", false);
+
     m.addSubMenu ("MIDI", midi);
     m.addSeparator();
 

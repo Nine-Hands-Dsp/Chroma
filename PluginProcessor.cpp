@@ -128,17 +128,13 @@ void TunaProcessor::setParam01 (const char* id, float v01)
 void TunaProcessor::handleMidi (const juce::MidiBuffer& midi)
 {
     const int chanSel = (int) pMidiChan->load();
-    const bool momentary = pMomentary->load (std::memory_order_relaxed) > 0.5f;
+    const bool momentary = false;                   // footswitch MIDI : 127 = on / 0 = off (menu final)
     for (const auto meta : midi)
     {
         const auto m = meta.getMessage();
         if (chanSel != 0 && m.getChannel() != chanSel) continue;
 
-        if (m.isProgramChange())
-        {
-            pendingProgram.store (m.getProgramChangeNumber());
-            continue;
-        }
+        if (m.isProgramChange()) continue;           // Program Change ignore (menu final)
         if (! m.isController()) continue;
         const int cc = m.getControllerNumber(), val = m.getControllerValue();
         lastMidiCc.store (cc); lastMidiValue.store (val); lastMidiStamp.fetch_add (1);
